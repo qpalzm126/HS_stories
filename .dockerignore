@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+**/__pycache__
+.pytest_cache
+web/node_modules
+web/dist
+backend/data
+*.db
+*.db-wal
+*.db-shm
+.env
+*.txt
+!backend/tests/fixtures/*.txt

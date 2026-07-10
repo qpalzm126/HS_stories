@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# 環境變數與金鑰
+.env
+
+# 資料庫（含未發佈草稿與匯入的 LINE 內容）
+*.db
+*.db-wal
+*.db-shm
+backend/data/
+uploads/
+
+# LINE 匯出檔（隱私）
+*.txt
+!backend/tests/fixtures/*.txt
+
+# 前端
+web/node_modules/
+web/dist/
+
+# Flutter（Phase B）
+app/build/
+app/.dart_tool/
+app/.flutter-plugins*
+app/ios/Pods/
+
+# 系統
+.DS_Store
