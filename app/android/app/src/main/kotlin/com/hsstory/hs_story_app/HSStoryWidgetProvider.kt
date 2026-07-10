@@ -1,4 +1,4 @@
-package com.hsstory.app
+package com.hsstory.hs_story_app
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -15,7 +15,7 @@ import es.antonborri.home_widget.HomeWidgetProvider
  * 資料來源：Flutter 端 home_widget 寫入的 SharedPreferences（key 對應 lib/config.dart 的 Config.k*）。
  * 點擊整個 widget → 以 ACTION_VIEW 開啟該篇文章網址。
  *
- * 註冊方式見 app/README.md（AndroidManifest 加 <receiver>、res/xml 加 provider info）。
+ * 已於 AndroidManifest.xml 註冊為 <receiver>，res/xml/hs_story_widget_info.xml 定義外觀。
  */
 class HSStoryWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(
