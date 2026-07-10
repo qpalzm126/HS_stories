@@ -17,7 +17,8 @@ dependencies:
   home_widget: ^0.6.0
 
   # 背景定時任務：iOS BGTaskScheduler / Android WorkManager，定期抓 latest 更新 widget
-  workmanager: ^0.5.2
+  # 0.9.x 為 federated 版，支援 Flutter 現代 Android embedding（0.5.x 在新版 Flutter 編譯不過）
+  workmanager: ^0.9.0
 
   # 開啟文章網址（widget/列表點擊）
   url_launcher: ^6.2.5

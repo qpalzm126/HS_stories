@@ -54,7 +54,7 @@ Future<void> registerBackgroundRefresh() async {
     kRefreshUniqueName,
     kRefreshTaskName,
     frequency: const Duration(minutes: 30),
-    existingWorkPolicy: ExistingWorkPolicy.keep,
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     constraints: Constraints(networkType: NetworkType.connected),
   );
 }
