@@ -1,0 +1,32 @@
+name: hs_story_app
+description: 聖靈故事 App — 顯示每日最新聖靈故事，並提供 iOS/Android 桌面 widget。
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 網路：抓公開 API（/api/articles、/api/articles/latest、/api/articles/{slug}）
+  http: ^1.2.0
+
+  # 原生 widget 橋接：寫入共享儲存（iOS App Group / Android SharedPreferences）並觸發 widget 更新
+  home_widget: ^0.6.0
+
+  # 背景定時任務：iOS BGTaskScheduler / Android WorkManager，定期抓 latest 更新 widget
+  workmanager: ^0.5.2
+
+  # 開啟文章網址（widget/列表點擊）
+  url_launcher: ^6.2.5
+
+  # App 內以 Markdown 呈現文章內文（/api/articles/{slug} 的 body）
+  flutter_markdown: ^0.7.1
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
