@@ -17,6 +17,7 @@ uploads/
 
 # LINE 匯出檔（隱私）
 *.txt
+!requirements.txt
 !backend/tests/fixtures/*.txt
 
 # 前端
