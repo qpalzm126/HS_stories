@@ -17,13 +17,21 @@ RUN npm run build
 # ---- 2. backend runtime ----
 FROM python:3.11-slim AS app
 WORKDIR /app
+
+# Litestream：把 SQLite 持續複製到物件儲存（B2），容器啟動時還原最新 DB。
+# 免費平台（Render）檔案系統是 ephemeral，資料持久化靠這個 sidecar。
+COPY --from=litestream/litestream:0.3.13 /usr/local/bin/litestream /usr/local/bin/litestream
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY --from=web /web/dist ./web/dist
+COPY deploy/litestream.yml /etc/litestream.yml
+COPY deploy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# SQLite 放在持久卷 /data（雲端平台掛 volume 到此路徑，避免重佈遺失資料）
+# SQLite 本地路徑（非持久；持久化來源是 B2，開機由 entrypoint 還原）
 ENV HS_DB_PATH=/data/hs.db
-# Railway 等平台會注入自己的 $PORT；用 shell 形式讓變數展開，本地無 PORT 時退回 8000。
+# 平台會注入自己的 $PORT；entrypoint 用 ${PORT:-8000} 展開，本地無 PORT 時退回 8000。
 EXPOSE 8000
-CMD uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-8000}
+ENTRYPOINT ["/entrypoint.sh"]

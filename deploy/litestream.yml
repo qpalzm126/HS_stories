@@ -1,0 +1,16 @@
+# Litestream：把 SQLite 資料庫持續複製到 Backblaze B2（S3 相容物件儲存）。
+# 容器啟動時 entrypoint 會先還原最新備份，之後持續把 WAL 變更串流上去。
+#
+# 認證與位置全部走環境變數（Render 上設定）：
+#   LITESTREAM_ACCESS_KEY_ID     = B2 application keyID
+#   LITESTREAM_SECRET_ACCESS_KEY = B2 applicationKey
+#   B2_BUCKET / B2_ENDPOINT / B2_REGION
+#   HS_DB_PATH（Dockerfile 已設 /data/hs.db）
+dbs:
+  - path: ${HS_DB_PATH}
+    replicas:
+      - type: s3
+        bucket: ${B2_BUCKET}
+        path: hs.db
+        endpoint: ${B2_ENDPOINT}   # 例：s3.us-west-004.backblazeb2.com
+        region: ${B2_REGION}       # 例：us-west-004

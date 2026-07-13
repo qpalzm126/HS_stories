@@ -11,4 +11,5 @@ backend/data
 *.db-shm
 .env
 *.txt
+!requirements.txt
 !backend/tests/fixtures/*.txt
