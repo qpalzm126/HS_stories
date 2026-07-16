@@ -30,5 +30,10 @@ app/.dart_tool/
 app/.flutter-plugins*
 app/ios/Pods/
 
+# Flutter release 簽章（機密，絕不提交）
+app/android/key.properties
+app/android/upload-keystore.jks
+app/**/*.jks
+
 # 系統
 .DS_Store

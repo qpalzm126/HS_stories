@@ -1,7 +1,7 @@
 name: hs_story_app
 description: 聖靈故事 App — 顯示每日最新聖靈故事，並提供 iOS/Android 桌面 widget。
 publish_to: "none"
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

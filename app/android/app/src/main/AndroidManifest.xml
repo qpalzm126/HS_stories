@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 抓公開 API / 產草稿需要網路。Flutter 範本只在 debug/profile manifest 加此權限，
+         release 版必須在 main 補上，否則上架版連不到後端。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="hs_story_app"
+        android:label="聖靈故事"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
