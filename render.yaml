@@ -14,9 +14,9 @@ services:
       - key: HS_DB_PATH
         value: /data/hs.db
       # --- 應用祕密（建立時在 Render 填）---
-      # 選用：只有後台「AI 產草稿」會用到；留空不影響上線（該功能回 503，
-      # 仍可在後台手動寫/編輯/發佈文章）。之後要 AI 草稿再補（或改接免費供應商）。
-      - key: ANTHROPIC_API_KEY
+      # 選用：只有後台「AI 產草稿」會用到（Google Gemini，免費金鑰）；留空不影響
+      # 上線（該功能回 503，仍可在後台手動寫/編輯/發佈文章）。
+      - key: GEMINI_API_KEY
         sync: false
       # 必填：後台登入密碼
       - key: ADMIN_PASSWORD
