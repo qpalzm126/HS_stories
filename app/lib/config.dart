@@ -14,7 +14,7 @@ class Config {
   /// 後端公開網址。預設留空字串代表「尚未設定」。
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://REPLACE_WITH_YOUR_DEPLOYED_URL',
+    defaultValue: 'https://hs-story.onrender.com',
   );
 
   /// iOS App Group / Android widget provider 共用的識別碼。
