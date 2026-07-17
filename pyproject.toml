@@ -1,0 +1,27 @@
+[project]
+name = "hs-story-backend"
+version = "0.1.0"
+description = "聖靈故事內容平台後端：FastAPI 提供 API + 前端，SQLite 以 Litestream 備份到 B2。"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "google-genai>=1.0",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0",
+    "itsdangerous>=2.1",
+]
+
+# 測試才「直接」需要的套件：pytest 跑測試、httpx 供 starlette TestClient。
+# 正式映像用 `uv sync --no-dev`：pytest 不會裝入；httpx 仍會因 google-genai 相依而存在，屬正常。
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+]
+
+# 這是「應用程式」而非要打包發佈的套件：backend 以原始碼形式從工作目錄匯入
+# （見 pytest.ini 的 pythonpath / Dockerfile 直接 COPY backend/），
+# 因此不需要 build backend，也不把專案本身當套件安裝。
+[tool.uv]
+package = false
