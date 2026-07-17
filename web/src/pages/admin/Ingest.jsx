@@ -79,7 +79,7 @@ export default function Ingest() {
       setErr('請先搜尋並（可選）勾選要用的訊息。')
       return
     }
-    if (!window.confirm(`將把 ${count} 則訊息送到 Claude API 產生文章草稿，是否繼續？`)) return
+    if (!window.confirm(`將把 ${count} 則訊息送到 AI 產生文章草稿，是否繼續？`)) return
     setBusy('draft')
     try {
       const payload =
@@ -181,12 +181,12 @@ export default function Ingest() {
       </div>
       <div className="draft-gen">
         <input
-          placeholder="給 Claude 的額外指示（選填），例如：以第一人稱、加上經文出處"
+          placeholder="給 AI 的額外指示（選填），例如：以第一人稱、加上經文出處"
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
         />
         <button className="btn primary" disabled={!!busy} onClick={generate}>
-          {busy === 'draft' ? 'Claude 產生中…' : '產生文章草稿'}
+          {busy === 'draft' ? 'AI 產生中…' : '產生文章草稿'}
         </button>
       </div>
     </div>

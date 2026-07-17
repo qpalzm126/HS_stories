@@ -46,7 +46,7 @@ def test_full_publish_flow(client, monkeypatch):
     r = client.get("/api/admin/messages", params={"q": "會議記錄"}, headers=h)
     assert r.status_code == 200 and r.json()["count"] >= 1
 
-    # 3. 產草稿（mock 掉 Claude）
+    # 3. 產草稿（mock 掉 Gemini）
     monkeypatch.setattr(
         summarizer,
         "draft_article",
@@ -99,7 +99,8 @@ def test_draft_without_api_key_returns_503(client, monkeypatch):
     h = _auth(client)
     files = {"file": ("sample_export.txt", FIXTURE.read_bytes(), "text/plain")}
     client.post("/api/admin/import", files=files, headers=h)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     r = client.post("/api/admin/draft", json={"conversation": "Alice"}, headers=h)
     assert r.status_code == 503
 
