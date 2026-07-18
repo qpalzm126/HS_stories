@@ -324,3 +324,31 @@ def list_articles(published_only: bool = True, limit: int = 50, offset: int = 0)
         sql = "SELECT * FROM articles ORDER BY COALESCE(updated_at, created_at) DESC LIMIT ? OFFSET ?"
     with connection() as con:
         return [dict(r) for r in con.execute(sql, (limit, offset))]
+
+
+def _admin_article_where(q: str | None, status: str | None):
+    """後台文章清單的篩選條件：status（draft/published）+ q（標題模糊比對）。"""
+    clauses, params = [], {}
+    if status in ("draft", "published"):
+        clauses.append("status = :status")
+        params["status"] = status
+    if q and q.strip():
+        clauses.append("title LIKE :q")
+        params["q"] = f"%{q.strip()}%"
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    return where, params
+
+
+def list_articles_admin(q=None, status=None, limit=20, offset=0) -> list[dict]:
+    where, params = _admin_article_where(q, status)
+    params["limit"], params["offset"] = limit, offset
+    sql = (f"SELECT * FROM articles{where} "
+           "ORDER BY COALESCE(updated_at, created_at) DESC LIMIT :limit OFFSET :offset")
+    with connection() as con:
+        return [dict(r) for r in con.execute(sql, params)]
+
+
+def count_articles_admin(q=None, status=None) -> int:
+    where, params = _admin_article_where(q, status)
+    with connection() as con:
+        return con.execute(f"SELECT COUNT(*) FROM articles{where}", params).fetchone()[0]

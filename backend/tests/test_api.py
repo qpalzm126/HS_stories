@@ -34,6 +34,30 @@ def test_admin_requires_token(client):
     assert client.get("/api/admin/articles", headers={"Authorization": "Bearer bad"}).status_code == 401
 
 
+def test_admin_articles_search_and_pagination(client):
+    h = _auth(client)
+    for i in range(25):
+        title = f"聖靈故事{i}" if i < 3 else f"雜項{i}"
+        r = client.post("/api/admin/articles", json={"title": title, "body": "x"}, headers=h)
+        if i == 0:
+            client.post(f"/api/admin/articles/{r.json()['id']}/publish", headers=h)
+
+    def g(**p):
+        return client.get("/api/admin/articles", params=p, headers=h).json()
+
+    # 分頁：回傳 {total, items}，預設每頁 20
+    d = g()
+    assert d["total"] == 25 and len(d["items"]) == 20
+    assert len(g(offset=20)["items"]) == 5
+    # 搜尋標題
+    assert g(q="聖靈")["total"] == 3
+    # 狀態篩選
+    assert g(status="published")["total"] == 1
+    assert g(status="draft")["total"] == 24
+    # 搜尋 + 狀態
+    assert g(q="聖靈", status="draft")["total"] == 2
+
+
 def test_full_publish_flow(client, monkeypatch):
     h = _auth(client)
 

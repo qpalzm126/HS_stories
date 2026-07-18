@@ -52,7 +52,8 @@ export const api = {
       }),
 
   // ---- 後台文章 ----
-  adminArticles: () => fetch(`${BASE}/admin/articles`, { headers: authHeaders() }).then(toJson),
+  adminArticles: (params = {}) =>
+    fetch(`${BASE}/admin/articles?` + new URLSearchParams(clean(params)), { headers: authHeaders() }).then(toJson),
   adminArticle: (id) => fetch(`${BASE}/admin/articles/${id}`, { headers: authHeaders() }).then(toJson),
   saveArticle: (a) =>
     fetch(`${BASE}/admin/articles`, {

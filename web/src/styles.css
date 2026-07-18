@@ -121,6 +121,12 @@ a:hover { text-decoration: underline; }
 .field.grow { flex: 1 1 200px; }
 .field label { font-size: 12px; color: var(--muted); }
 .field input, .field select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 14px; }
+.filters + .tbl, .filters + .error { margin-top: 12px; }
+
+/* 分頁 */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.pager-btns { display: flex; align-items: center; gap: 10px; }
+.btn.sm:disabled { opacity: .4; cursor: not-allowed; }
 
 .msg-select { margin-top: 12px; }
 .msg-select-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }

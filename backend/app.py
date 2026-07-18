@@ -185,8 +185,16 @@ def admin_save_article(a: ArticleIn):
 
 
 @app.get("/api/admin/articles", dependencies=[Depends(require_admin)])
-def admin_list_articles(limit: int = Query(100, le=500), offset: int = 0):
-    return db.list_articles(published_only=False, limit=limit, offset=offset)
+def admin_list_articles(
+    q: str | None = None,
+    status: str | None = None,
+    limit: int = Query(20, le=500),
+    offset: int = 0,
+):
+    return {
+        "total": db.count_articles_admin(q=q, status=status),
+        "items": db.list_articles_admin(q=q, status=status, limit=limit, offset=offset),
+    }
 
 
 @app.get("/api/admin/articles/{article_id}", dependencies=[Depends(require_admin)])
