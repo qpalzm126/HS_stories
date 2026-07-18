@@ -1,0 +1,31 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "後端 API 網址（給 App 用，預設用 config.dart 內建的已部署網址）"
+        required: false
+        default: "https://hs-story.onrender.com"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+
+      - run: flutter build apk --release --dart-define=API_BASE_URL=${{ inputs.api_base_url }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hs-story-app
+          path: app/build/app/outputs/flutter-apk/app-release.apk
