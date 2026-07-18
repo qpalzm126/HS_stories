@@ -29,13 +29,33 @@ def _base_url() -> str:
     return os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 
 
+def _preview_from_body(body: str | None, limit: int = 100) -> str:
+    """從 Markdown 內文截一段純文字，作為列表預覽（excerpt 未填時的備援）。"""
+    if not body:
+        return ""
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", body)          # 圖片
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)      # 連結→留文字
+    text = re.sub(r"^\s{0,3}#{1,6}\s*", "", text, flags=re.M)  # 標題符號
+    text = re.sub(r"^\s{0,3}[-*+]\s+", "", text, flags=re.M)   # 清單符號
+    text = re.sub(r"^\s{0,3}>\s?", "", text, flags=re.M)       # 引言符號
+    text = text.replace("*", "").replace("`", "").replace("_", "")
+    text = re.sub(r"\s+", " ", text).strip()                   # 收合空白/換行
+    if len(text) > limit:
+        text = text[:limit].rstrip() + "…"
+    return text
+
+
 def public_article(row: dict, full: bool = False) -> dict:
     """整理成對外（公開 API / widget）用的欄位。"""
     slug = row.get("slug")
+    # excerpt 優先用人工摘錄；沒填就用內文開頭當預覽（app/web/widget 共用）。
+    excerpt = (row.get("excerpt") or "").strip()
+    if not excerpt:
+        excerpt = _preview_from_body(row.get("body"))
     out = {
         "slug": slug,
         "title": row.get("title"),
-        "excerpt": row.get("excerpt"),
+        "excerpt": excerpt or None,
         "cover_url": row.get("cover_url"),
         "published_at": row.get("published_at"),
         "url": f"{_base_url()}/article/{slug}" if slug else None,

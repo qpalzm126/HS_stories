@@ -57,8 +57,8 @@ def require_admin(authorization: str | None = Header(None)) -> None:
 
 
 @app.get("/api/articles")
-def public_articles(limit: int = Query(50, le=200), offset: int = 0):
-    rows = db.list_articles(published_only=True, limit=limit, offset=offset)
+def public_articles(q: str | None = None, limit: int = Query(50, le=500), offset: int = 0):
+    rows = db.list_articles(published_only=True, limit=limit, offset=offset, q=q)
     return [articles.public_article(r) for r in rows]
 
 

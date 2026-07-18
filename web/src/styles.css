@@ -51,6 +51,12 @@ a:hover { text-decoration: underline; }
 .site-head h1 { margin: 0; font-size: 30px; letter-spacing: 2px; }
 .tagline { color: var(--muted); margin: 6px 0 0; }
 
+.site-search { max-width: 460px; margin: 16px auto 0; }
+.site-search input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--panel); color: var(--text); font-size: 15px; }
+.site-search input:focus { outline: none; border-color: var(--muted); }
+.search-count { text-align: center; margin-top: 16px; }
+
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; margin-top: 24px; }
 .card {
   display: block; background: var(--panel); border: 1px solid var(--border);

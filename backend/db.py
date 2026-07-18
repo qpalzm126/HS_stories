@@ -328,14 +328,20 @@ def get_latest_article() -> dict | None:
         )
 
 
-def list_articles(published_only: bool = True, limit: int = 50, offset: int = 0) -> list[dict]:
+def list_articles(published_only: bool = True, limit: int = 50, offset: int = 0,
+                  q: str | None = None) -> list[dict]:
+    clauses, params = [], {}
     if published_only:
-        sql = ("SELECT * FROM articles WHERE status='published' "
-               "ORDER BY published_at DESC LIMIT ? OFFSET ?")
-    else:
-        sql = "SELECT * FROM articles ORDER BY COALESCE(updated_at, created_at) DESC LIMIT ? OFFSET ?"
+        clauses.append("status = 'published'")
+    if q and q.strip():                       # 關鍵字：標題或內文含關鍵字
+        clauses.append("(title LIKE :q OR body LIKE :q)")
+        params["q"] = f"%{q.strip()}%"
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    order = "published_at DESC" if published_only else "COALESCE(updated_at, created_at) DESC"
+    params["limit"], params["offset"] = limit, offset
+    sql = f"SELECT * FROM articles{where} ORDER BY {order} LIMIT :limit OFFSET :offset"
     with connection() as con:
-        return [dict(r) for r in con.execute(sql, (limit, offset))]
+        return [dict(r) for r in con.execute(sql, params)]
 
 
 def _admin_article_where(q: str | None, status: str | None):

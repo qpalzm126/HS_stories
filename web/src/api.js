@@ -32,7 +32,7 @@ function clean(o) {
 
 export const api = {
   // ---- 公開 ----
-  articles: (limit = 50) => fetch(`${BASE}/articles?limit=${limit}`).then(toJson),
+  articles: (params = {}) => fetch(`${BASE}/articles?` + new URLSearchParams(clean(params))).then(toJson),
   latest: () => fetch(`${BASE}/articles/latest`).then(toJson),
   article: (slug) => fetch(`${BASE}/articles/${encodeURIComponent(slug)}`).then(toJson),
 
