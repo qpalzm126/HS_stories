@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -271,13 +272,24 @@ def update_article(article_id: int, **fields) -> None:
         con.execute(f"UPDATE articles SET {sets} WHERE id = :id", params)
 
 
-def publish_article(article_id: int) -> None:
+def publish_article(article_id: int, published_at: str | None = None) -> None:
+    """發佈文章並決定 published_at（決定公開站的排序與顯示日期），優先序：
+    1) 明確傳入的 published_at；2) 該文已有的 published_at；
+    3) source_ref 內的 orig_date（匯入文章的原始日期，讓時間軸貼合原文）；4) 現在時間。"""
     with connection() as con:
-        row = con.execute("SELECT published_at FROM articles WHERE id = ?", (article_id,)).fetchone()
-        published_at = (row["published_at"] if row and row["published_at"] else _now())
+        row = con.execute(
+            "SELECT published_at, source_ref FROM articles WHERE id = ?", (article_id,)
+        ).fetchone()
+        pub = published_at or (row["published_at"] if row and row["published_at"] else None)
+        if not pub and row and row["source_ref"]:
+            try:
+                pub = (json.loads(row["source_ref"]) or {}).get("orig_date")
+            except (ValueError, TypeError):
+                pass
+        pub = pub or _now()
         con.execute(
             "UPDATE articles SET status='published', published_at=?, updated_at=? WHERE id=?",
-            (published_at, _now(), article_id),
+            (pub, _now(), article_id),
         )
 
 

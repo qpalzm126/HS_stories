@@ -34,6 +34,28 @@ def test_admin_requires_token(client):
     assert client.get("/api/admin/articles", headers={"Authorization": "Bearer bad"}).status_code == 401
 
 
+def test_publish_uses_orig_date_from_source_ref(client):
+    import json as _json
+    h = _auth(client)
+    # 匯入文章：source_ref 帶原始日期 → 發佈時 published_at 應採用它（時間軸貼合原文）
+    a = client.post(
+        "/api/admin/articles",
+        json={"title": "2023年聖靈故事54", "body": "x",
+              "source_ref": _json.dumps({"msg_id": 1, "orig_date": "2023-12-08T15:35:00"})},
+        headers=h,
+    ).json()
+    r = client.post(f"/api/admin/articles/{a['id']}/publish", headers=h).json()
+    assert r["published_at"] == "2023-12-08T15:35:00"
+
+    # 明確指定 published_at 時，以指定值為準
+    b = client.post("/api/admin/articles", json={"title": "手動", "body": "y"}, headers=h).json()
+    r = client.post(
+        f"/api/admin/articles/{b['id']}/publish",
+        json={"published_at": "2020-01-01T00:00:00"}, headers=h,
+    ).json()
+    assert r["published_at"] == "2020-01-01T00:00:00"
+
+
 def test_admin_articles_search_and_pagination(client):
     h = _auth(client)
     for i in range(25):

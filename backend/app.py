@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile  # noqa: E402
+from fastapi import Body, Depends, FastAPI, File, Header, HTTPException, Query, UploadFile  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
@@ -205,11 +205,15 @@ def admin_get_article(article_id: int):
     return row
 
 
+class PublishReq(BaseModel):
+    published_at: str | None = None
+
+
 @app.post("/api/admin/articles/{article_id}/publish", dependencies=[Depends(require_admin)])
-def admin_publish(article_id: int):
+def admin_publish(article_id: int, req: PublishReq | None = Body(None)):
     if not db.get_article_by_id(article_id):
         raise HTTPException(404, "找不到文章")
-    db.publish_article(article_id)
+    db.publish_article(article_id, published_at=(req.published_at if req else None))
     return db.get_article_by_id(article_id)
 
 
