@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../../api.js'
 
-const PAGE_SIZE = 20
+const PAGE_SIZES = [20, 50, 100, 200]
 
 export default function Dashboard() {
   const [items, setItems] = useState([])
@@ -11,23 +11,24 @@ export default function Dashboard() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('') // '' = 全部
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem('hs_page_size')) || 20)
   const nav = useNavigate()
 
   const load = useCallback(() => {
     return api
-      .adminArticles({ q, status, limit: PAGE_SIZE, offset: page * PAGE_SIZE })
+      .adminArticles({ q, status, limit: pageSize, offset: page * pageSize })
       .then((d) => {
         setItems(d.items)
         setTotal(d.total)
       })
       .catch((e) => setErr(String(e.message || e)))
-  }, [q, status, page])
+  }, [q, status, page, pageSize])
 
-  // 搜尋/篩選改變時回到第 1 頁（用 debounce 讓打字不會每個字都打 API）
+  // 搜尋/篩選/每頁筆數改變時回到第 1 頁（用 debounce 讓打字不會每個字都打 API）
   useEffect(() => {
     const t = setTimeout(() => setPage(0), 250)
     return () => clearTimeout(t)
-  }, [q, status])
+  }, [q, status, pageSize])
 
   useEffect(() => {
     load()
@@ -43,9 +44,9 @@ export default function Dashboard() {
     }
   }
 
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const from = total === 0 ? 0 : page * PAGE_SIZE + 1
-  const to = Math.min(total, (page + 1) * PAGE_SIZE)
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  const from = total === 0 ? 0 : page * pageSize + 1
+  const to = Math.min(total, (page + 1) * pageSize)
 
   return (
     <div className="admin">
@@ -70,6 +71,15 @@ export default function Dashboard() {
             <option value="">全部</option>
             <option value="draft">草稿</option>
             <option value="published">已發佈</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>每頁筆數</label>
+          <select
+            value={pageSize}
+            onChange={(e) => { const n = Number(e.target.value); setPageSize(n); localStorage.setItem('hs_page_size', String(n)) }}
+          >
+            {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
       </div>
