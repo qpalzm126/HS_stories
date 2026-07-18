@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'api.dart';
 import 'article_screen.dart';
 import 'models.dart';
+import 'theme.dart';
 import 'widget_service.dart';
 
-/// 首頁：最新一篇 hero + 全部故事列表。下拉可重整並同步更新 widget。
+/// 首頁：標語 + 關鍵字搜尋 + 故事列表（最新一篇做成 hero）。
+/// 下拉可重整並同步更新 widget。
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -15,6 +19,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _api = Api();
+  final _searchCtrl = TextEditingController();
+  Timer? _debounce;
+  String _q = ''; // 已套用的關鍵字
   late Future<List<Article>> _future;
 
   @override
@@ -23,8 +30,32 @@ class _HomeScreenState extends State<HomeScreen> {
     _future = _api.fetchArticles();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  // 上限 200：對齊後端 limit 的 le 上限，且 > 全站文章數，搜尋能抓齊符合的。
+  Future<List<Article>> _load() =>
+      _api.fetchArticles(q: _q.isEmpty ? null : _q, limit: 200);
+
+  // 打字時 debounce，避免每個字都打 API（對齊 web）。
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      final next = value.trim();
+      if (next == _q) return;
+      setState(() {
+        _q = next;
+        _future = _load();
+      });
+    });
+  }
+
   Future<void> _refresh() async {
-    final next = _api.fetchArticles();
+    final next = _load();
     setState(() => _future = next);
     await next;
     // 順手把 widget 也更新成最新。
@@ -41,94 +72,256 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('聖靈故事')),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder<List<Article>>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snap.hasError) {
-              return _ErrorView(
-                message: '${snap.error}',
-                onRetry: _refresh,
-              );
-            }
-            final items = snap.data ?? const <Article>[];
-            if (items.isEmpty) {
-              return const _EmptyView();
-            }
-            return ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) =>
-                  _ArticleCard(article: items[i], onTap: () => _open(items[i])),
-            );
-          },
+      body: Column(
+        children: [
+          const SizedBox(height: 6),
+          _SearchField(controller: _searchCtrl, onChanged: _onQueryChanged),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child: FutureBuilder<List<Article>>(
+                future: _future,
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) {
+                    return _ErrorView(message: '${snap.error}', onRetry: _refresh);
+                  }
+                  final items = snap.data ?? const <Article>[];
+                  if (items.isEmpty) return _EmptyView(query: _q);
+                  return _ArticleList(items: items, query: _q, onOpen: _open);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  const _SearchField({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: TextStyle(color: p.text, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: '搜尋標題或內文關鍵字…',
+          hintStyle: TextStyle(color: p.muted),
+          prefixIcon: Icon(Icons.search, color: p.muted, size: 20),
+          isDense: true,
+          filled: true,
+          fillColor: p.panel,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(999),
+            borderSide: BorderSide(color: p.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(999),
+            borderSide: BorderSide(color: p.accent, width: 1.4),
+          ),
         ),
       ),
     );
   }
 }
 
+class _ArticleList extends StatelessWidget {
+  final List<Article> items;
+  final String query;
+  final ValueChanged<Article> onOpen;
+  const _ArticleList(
+      {required this.items, required this.query, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final searching = query.isNotEmpty;
+    final header = searching ? 1 : 0;
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 28),
+      itemCount: items.length + header,
+      itemBuilder: (context, idx) {
+        if (searching && idx == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12, top: 2),
+            child: Text('找到 ${items.length} 篇含「$query」的文章',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Palette.of(context).muted)),
+          );
+        }
+        final i = idx - header;
+        final a = items[i];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: _ArticleCard(
+            article: a,
+            hero: !searching && i == 0,
+            onTap: () => onOpen(a),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _ArticleCard extends StatelessWidget {
   final Article article;
+  final bool hero;
   final VoidCallback onTap;
-  const _ArticleCard({required this.article, required this.onTap});
+  const _ArticleCard(
+      {required this.article, required this.onTap, this.hero = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
+    final p = Palette.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final radius = hero ? 18.0 : 14.0;
+    final hasCover =
+        article.coverUrl != null && article.coverUrl!.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: p.panel,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: p.border),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: const Color(0x0F000000),
+                  blurRadius: hero ? 16 : 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (article.coverUrl != null && article.coverUrl!.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  article.coverUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (hasCover)
+                Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: hero ? 3 / 2 : 16 / 9,
+                      child: _CoverImage(url: article.coverUrl!, chip: p.chip),
+                    ),
+                    if (hero)
+                      Positioned(
+                        left: 12,
+                        top: 12,
+                        child: _Pill(color: p.accent, text: '最新'),
+                      ),
+                  ],
+                ),
+              Padding(
+                padding: EdgeInsets.all(hero ? 18 : 15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hero && !hasCover) ...[
+                      _Pill(color: p.accent, text: '最新'),
+                      const SizedBox(height: 10),
+                    ],
+                    Text(
+                      article.title,
+                      style: (hero
+                              ? theme.textTheme.titleLarge
+                              : theme.textTheme.titleMedium)
+                          ?.copyWith(fontWeight: FontWeight.w700, height: 1.3),
+                    ),
+                    if (article.excerpt != null &&
+                        article.excerpt!.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        article.excerpt!,
+                        maxLines: hero ? 3 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: p.muted, height: 1.55),
+                      ),
+                    ],
+                    if (article.publishedAt != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Icon(Icons.schedule, size: 13, color: p.muted),
+                          const SizedBox(width: 5),
+                          Text(
+                            _fmtDate(article.publishedAt!),
+                            style: theme.textTheme.labelSmall
+                                ?.copyWith(color: p.muted),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(article.title, style: theme.textTheme.titleMedium),
-                  if (article.excerpt != null &&
-                      article.excerpt!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      article.excerpt!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                  if (article.publishedAt != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _fmtDate(article.publishedAt!),
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: theme.colorScheme.outline),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// 封面圖：載入中顯示淡底、載入失敗則收合（不留破圖）。
+class _CoverImage extends StatelessWidget {
+  final String url;
+  final Color chip;
+  const _CoverImage({required this.url, required this.chip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : Container(color: chip),
+      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final Color color;
+  final String text;
+  const _Pill({required this.color, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(text,
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1)),
     );
   }
 }
@@ -141,13 +334,20 @@ String _fmtDate(String iso) {
 }
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView();
+  final String query;
+  const _EmptyView({this.query = ''});
   @override
   Widget build(BuildContext context) {
+    final msg = query.isEmpty
+        ? '還沒有已發佈的故事'
+        : '找不到含「$query」的文章';
     return ListView(
-      children: const [
-        SizedBox(height: 120),
-        Center(child: Text('還沒有已發佈的故事')),
+      children: [
+        const SizedBox(height: 120),
+        Center(
+          child: Text(msg,
+              style: TextStyle(color: Palette.of(context).muted)),
+        ),
       ],
     );
   }

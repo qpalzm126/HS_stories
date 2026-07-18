@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'config.dart';
 import 'home_screen.dart';
+import 'theme.dart';
 import 'widget_service.dart';
 
 Future<void> main() async {
@@ -48,19 +49,11 @@ class _HSStoryAppState extends State<HSStoryApp> {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF3B6EA5);
     return MaterialApp(
       title: '聖靈故事',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: seed),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme:
-            ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
-        useMaterial3: true,
-      ),
+      theme: buildAppTheme(Brightness.light),
+      darkTheme: buildAppTheme(Brightness.dark),
       home: const HomeScreen(),
     );
   }

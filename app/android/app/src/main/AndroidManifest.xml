@@ -5,7 +5,8 @@
     <application
         android:label="聖靈故事"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"><!-- 僅為本機測試連 http 後端；正式改連 https 後可移除 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -16,11 +16,17 @@ class Api {
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 
-  /// 已發佈文章列表。
-  Future<List<Article>> fetchArticles({int limit = 50, int offset = 0}) async {
-    final res = await _client
-        .get(_u('/api/articles?limit=$limit&offset=$offset'))
-        .timeout(const Duration(seconds: 15));
+  /// 已發佈文章列表；帶 [q] 則做標題/內文關鍵字搜尋。
+  Future<List<Article>> fetchArticles(
+      {int limit = 50, int offset = 0, String? q}) async {
+    final query = <String, String>{
+      'limit': '$limit',
+      'offset': '$offset',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+    };
+    final uri =
+        Uri.parse('$baseUrl/api/articles').replace(queryParameters: query);
+    final res = await _client.get(uri).timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) {
       throw ApiException('列表載入失敗 (${res.statusCode})');
     }
