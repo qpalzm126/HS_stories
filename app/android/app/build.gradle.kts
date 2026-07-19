@@ -50,6 +50,11 @@ android {
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")
+            // 關掉 R8：Flutter App 的 Java/Kotlin 層很小，收縮收益有限，卻會裁掉
+            // workmanager 的 WorkManager/Room 反射建構子（WorkDatabase_Impl.<init>），
+            // 造成 release 版一啟動就閃退（debug 沒 R8 故正常）。
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
