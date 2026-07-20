@@ -3,16 +3,18 @@
 把 **LINE 聊天記錄裡的見證/分享**，經 Gemini 產草稿、人工確認後**發佈成文章**，提供：
 
 - **公開網站**：列出全部聖靈故事、文章詳情頁。
-- **公開 API**：給手機桌面 widget 取「最新一篇」。
+- **公開 API**：給手機 App 與桌面 widget 取文章（最新／列表／單篇、關鍵字搜尋）。
 - **後台**：匯入 LINE、搜尋挑訊息、產草稿、編修、發佈。
 
-> 內容管線：LINE 記錄 →（後台篩選 + Gemini 產草稿）→ 你確認發佈 → 網站 + Widget 顯示最新一篇。
+> 內容管線：LINE 記錄 →（後台篩選 + Gemini 產草稿）→ 你確認發佈 → 網站 + App/Widget 顯示。
 
 ## 現況（分階段）
 
-- ✅ **Phase A（本 repo 已完成並驗證）**：backend + 公開網站 + 後台。
-- ⏳ **Phase B**：Flutter App + iOS/Android 原生 widget（需安裝 Flutter SDK 才能編譯）。
-- ⏳ **Phase C**：部署到 Railway（Dockerfile 已備妥）。
+- ✅ **Phase A**：backend + 公開網站（列表／搜尋／日曆／文章詳情）+ 後台。
+- 🔶 **Phase B**：Flutter App + 原生 widget。Android 已可編譯／執行／側載（模擬器驗證）；
+  iOS 的 Widget Extension 仍需在 Xcode 手動接線（見 `app/README.md`）。需安裝 Flutter SDK。
+- ✅ **Phase C**：以 Docker 部署到 Render；SQLite 靠 Litestream 持續備份到 Backblaze B2
+  （Render 免費方案無持久磁碟）。⚠️ 目前 push **不會**自動部署，需在 Render 手動觸發（見部署章節）。
 
 ## 架構
 
