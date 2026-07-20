@@ -19,15 +19,30 @@ export default function Calendar() {
   const [cursor, setCursor] = useState(null) // { year, month }（month 0 起）
 
   useEffect(() => {
-    api
-      .articles({ limit: 200 })
+    let cancelled = false
+    // 日曆需涵蓋所有歷年文章，分批抓齊（後端 limit 上限 200）。
+    async function fetchAll() {
+      const all = []
+      const LIMIT = 200
+      for (let offset = 0; ; offset += LIMIT) {
+        const batch = await api.articles({ limit: LIMIT, offset })
+        all.push(...batch)
+        if (batch.length < LIMIT) break
+      }
+      return all
+    }
+    fetchAll()
       .then((list) => {
+        if (cancelled) return
         setItems(list)
         // 預設顯示最新一篇所在月份（沒有文章則本月）
         const base = list[0] ? new Date(list[0].published_at) : new Date()
         setCursor({ year: base.getFullYear(), month: base.getMonth() })
       })
-      .catch((e) => setErr(String(e.message || e)))
+      .catch((e) => !cancelled && setErr(String(e.message || e)))
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // 依本地日期把文章分組

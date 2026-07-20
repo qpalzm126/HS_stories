@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
+
+const PAGE = 100 // 每批載入筆數（後端公開 API limit 上限 200，取 100 分批較穩）
 
 export default function Home() {
   const [items, setItems] = useState(null)
   const [err, setErr] = useState('')
   const [q, setQ] = useState('')
   const [dq, setDq] = useState('') // debounced query
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   // 打字時 debounce，避免每個字都打 API
   useEffect(() => {
@@ -17,10 +21,34 @@ export default function Home() {
   useEffect(() => {
     setItems(null)
     setErr('')
-    // 有關鍵字：搜尋（放寬上限抓齊符合的）；無關鍵字：顯示最新 100 篇
-    const params = dq ? { q: dq, limit: 500 } : { limit: 100 }
-    api.articles(params).then(setItems).catch((e) => setErr(String(e.message || e)))
+    setHasMore(false)
+    if (dq) {
+      // 有關鍵字：一次抓（上限 200，對齊後端）
+      api.articles({ q: dq, limit: 200 }).then(setItems).catch((e) => setErr(String(e.message || e)))
+    } else {
+      // 無關鍵字：分批載入（可看到全部歷年文章，不再只有最新一批）
+      api
+        .articles({ limit: PAGE, offset: 0 })
+        .then((list) => {
+          setItems(list)
+          setHasMore(list.length === PAGE)
+        })
+        .catch((e) => setErr(String(e.message || e)))
+    }
   }, [dq])
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || !items) return
+    setLoadingMore(true)
+    api
+      .articles({ limit: PAGE, offset: items.length })
+      .then((list) => {
+        setItems((prev) => [...prev, ...list])
+        setHasMore(list.length === PAGE)
+      })
+      .catch((e) => setErr(String(e.message || e)))
+      .finally(() => setLoadingMore(false))
+  }, [items, loadingMore])
 
   return (
     <div className="site">
@@ -60,6 +88,13 @@ export default function Home() {
               </Link>
             ))}
           </div>
+          {!dq && hasMore && (
+            <div className="load-more">
+              <button className="btn" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? '載入中…' : '載入更多'}
+              </button>
+            </div>
+          )}
         </>
       )}
 

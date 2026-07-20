@@ -50,9 +50,10 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        // 清單新→舊排（index 0 = 最新）。◀ 看更舊(+1)、▶ 看更新(-1)；不循環。
         when (intent.action) {
-            ACTION_PREV -> shift(context, -1)
-            ACTION_NEXT -> shift(context, +1)
+            ACTION_PREV -> shift(context, +1)
+            ACTION_NEXT -> shift(context, -1)
         }
         super.onReceive(context, intent)
     }
@@ -72,13 +73,14 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
     private fun clamp(i: Int, count: Int): Int =
         if (count <= 0) 0 else i.coerceIn(0, count - 1)
 
-    /** 切換目前故事（循環），更新 index 後重繪所有 widget。 */
+    /** 切換目前故事（不循環，夾在 [0, count-1]），更新 index 後重繪所有 widget。 */
     private fun shift(context: Context, delta: Int) {
         val data = prefs(context)
         val count = parseArticles(data).length()
         if (count == 0) return
         val cur = clamp(data.getInt(KEY_INDEX, 0), count)
-        val next = (cur + delta + count) % count
+        val next = (cur + delta).coerceIn(0, count - 1)
+        if (next == cur) return
         data.edit().putInt(KEY_INDEX, next).apply()
 
         val mgr = AppWidgetManager.getInstance(context)
@@ -118,9 +120,24 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
                 R.id.widget_root, PendingIntent.getActivity(context, 100 + widgetId, view, flags)
             )
         }
-        views.setOnClickPendingIntent(R.id.widget_prev, broadcast(context, ACTION_PREV, 1))
-        views.setOnClickPendingIntent(R.id.widget_next, broadcast(context, ACTION_NEXT, 2))
+        val last = articles.length() - 1
+        // ◀ 看更舊：在最舊停用；▶ 看更新：在最新（index 0）停用。不循環。
+        navButton(context, views, R.id.widget_prev, ACTION_PREV, 1, index < last)
+        navButton(context, views, R.id.widget_next, ACTION_NEXT, 2, index > 0)
         return views
+    }
+
+    /** 設定切換鍵：可用則綁點擊 + 正常色；停用則清點擊 + 淡色。 */
+    private fun navButton(
+        context: Context,
+        views: RemoteViews,
+        viewId: Int,
+        action: String,
+        req: Int,
+        enabled: Boolean
+    ) {
+        views.setInt(viewId, "setTextColor", if (enabled) 0xFF2B2620.toInt() else 0xFFCBC4B6.toInt())
+        views.setOnClickPendingIntent(viewId, if (enabled) broadcast(context, action, req) else null)
     }
 
     /**

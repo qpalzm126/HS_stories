@@ -70,6 +70,7 @@ a:hover { text-decoration: underline; }
 
 .site-foot { text-align: center; margin-top: 48px; color: var(--muted); font-size: 13px; }
 .site-nav { margin: 10px 0 0; }
+.load-more { text-align: center; margin-top: 28px; }
 .site-nav a { font-size: 14px; }
 
 /* ---------- 日曆 ---------- */
