@@ -92,20 +92,16 @@ def _map_chunk(client: genai.Client, chunk: str) -> str:
     return (resp.text or "").strip()
 
 
-def _prepare_source(client: genai.Client, messages: list[dict]) -> str:
-    text = format_messages(messages)
+def _condense(client: genai.Client, text: str) -> str:
+    """把來源文字整理成適合改寫的來源：短則原樣、長則分段濃縮（map-reduce）。"""
     if len(text) <= CHUNK_CHARS:
         return text
     parts = [_map_chunk(client, c) for c in _chunk(text)]
     return "以下是對話各段的濃縮：\n\n" + "\n\n".join(f"[片段 {i + 1}]\n{p}" for i, p in enumerate(parts))
 
 
-def draft_article(messages: list[dict], instructions: str | None = None) -> dict:
-    """把選取的訊息改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。"""
-    if not messages:
-        raise SummarizerError("沒有可用來產生草稿的訊息。")
-    client = _client()
-    source = _prepare_source(client, messages)
+def _generate_draft(client: genai.Client, source: str, instructions: str | None) -> dict:
+    """把整理好的來源文字送 Gemini 改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。"""
     user = source
     if instructions:
         user = f"（編輯要求：{instructions}）\n\n{source}"
@@ -136,3 +132,26 @@ def draft_article(messages: list[dict], instructions: str | None = None) -> dict
         raise SummarizerError("模型未回傳有效的文章草稿。")
     data.setdefault("tags", [])
     return data
+
+
+def draft_article(messages: list[dict], instructions: str | None = None) -> dict:
+    """把選取的訊息改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。"""
+    if not messages:
+        raise SummarizerError("沒有可用來產生草稿的訊息。")
+    client = _client()
+    source = _condense(client, format_messages(messages))
+    return _generate_draft(client, source, instructions)
+
+
+def draft_from_text(text: str, instructions: str | None = None) -> dict:
+    """把貼上的一段對話（純文字）直接改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。
+
+    與 draft_article 的差別：不經過資料庫與訊息挑選，直接吃使用者貼上的原始文字，
+    供「複製貼上即產草稿」的捷徑使用。
+    """
+    text = (text or "").strip()
+    if not text:
+        raise SummarizerError("沒有可用來產生草稿的內容。")
+    client = _client()
+    source = _condense(client, text)
+    return _generate_draft(client, source, instructions)

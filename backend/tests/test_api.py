@@ -155,3 +155,36 @@ def test_draft_no_messages_returns_404(client):
     h = _auth(client)
     r = client.post("/api/admin/draft", json={"conversation": "不存在"}, headers=h)
     assert r.status_code == 404
+
+
+def test_draft_from_text_returns_draft(client, monkeypatch):
+    """複製貼上捷徑：貼一段文字直接產草稿（mock 掉 Gemini），不需匯入。"""
+    h = _auth(client)
+    monkeypatch.setattr(
+        summarizer,
+        "draft_from_text",
+        lambda text, instructions=None: {
+            "title": "貼上產生的文章",
+            "excerpt": "摘要",
+            "body_markdown": "# 內文",
+            "tags": [],
+        },
+    )
+    r = client.post(
+        "/api/admin/draft-from-text",
+        json={"text": "15:20\tAlice\t今天很感恩，分享一個見證"},
+        headers=h,
+    )
+    assert r.status_code == 200
+    assert r.json()["draft"]["title"] == "貼上產生的文章"
+
+
+def test_draft_from_text_requires_token(client):
+    r = client.post("/api/admin/draft-from-text", json={"text": "x"})
+    assert r.status_code == 401
+
+
+def test_draft_from_text_empty_returns_400(client):
+    h = _auth(client)
+    r = client.post("/api/admin/draft-from-text", json={"text": "   "}, headers=h)
+    assert r.status_code == 400

@@ -11,6 +11,9 @@ export default function Ingest() {
   const [messages, setMessages] = useState(null)
   const [selected, setSelected] = useState(new Set())
   const [instructions, setInstructions] = useState('')
+  const [pasteText, setPasteText] = useState('')
+  const [pasteInstructions, setPasteInstructions] = useState('')
+  const [pasteErr, setPasteErr] = useState('')
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
@@ -72,6 +75,30 @@ export default function Ingest() {
   const selectAll = () => setSelected(new Set((messages || []).map((m) => m.id)))
   const clearSel = () => setSelected(new Set())
 
+  async function generateFromPaste() {
+    setPasteErr('')
+    if (!pasteText.trim()) {
+      setPasteErr('請先貼上要產生草稿的對話內容。')
+      return
+    }
+    setBusy('paste')
+    try {
+      const r = await api.draftFromText({ text: pasteText, instructions: pasteInstructions })
+      const d = r.draft
+      const saved = await api.saveArticle({
+        title: d.title,
+        excerpt: d.excerpt,
+        body: d.body_markdown,
+        source_ref: JSON.stringify({ from: 'paste', chars: pasteText.length }),
+      })
+      nav(`/admin/edit/${saved.id}`)
+    } catch (e) {
+      setPasteErr(String(e.message || e))
+    } finally {
+      setBusy('')
+    }
+  }
+
   async function generate() {
     setErr('')
     const count = selected.size > 0 ? selected.size : (messages ? messages.length : 0)
@@ -108,6 +135,33 @@ export default function Ingest() {
         <Link to="/admin" className="back">← 文章管理</Link>
         <h1>從 LINE 產生文章</h1>
       </div>
+
+      <div className="paste-draft">
+        <div className="ingest-step">
+          <b>✨ 快速：直接貼上對話 → 產生草稿</b>
+          <span className="muted small">不必匯入檔案，把一段 LINE 對話貼進來即可</span>
+        </div>
+        <textarea
+          className="paste-box"
+          rows={8}
+          placeholder={'把要改寫成文章的對話內容貼在這裡…\n（可直接從 LINE 複製一段訊息貼上）'}
+          value={pasteText}
+          onChange={(e) => setPasteText(e.target.value)}
+        />
+        <div className="draft-gen">
+          <input
+            placeholder="給 AI 的額外指示（選填），例如：以第一人稱、加上經文出處"
+            value={pasteInstructions}
+            onChange={(e) => setPasteInstructions(e.target.value)}
+          />
+          <button className="btn primary" disabled={!!busy || !pasteText.trim()} onClick={generateFromPaste}>
+            {busy === 'paste' ? 'AI 產生中…' : '貼上內容產生草稿'}
+          </button>
+        </div>
+        {pasteErr && <p className="error">{pasteErr}</p>}
+      </div>
+
+      <div className="or-divider"><span>或，從匯入的訊息挑選</span></div>
 
       <div className="ingest-step">
         <b>1. 匯入 LINE 匯出檔</b>
