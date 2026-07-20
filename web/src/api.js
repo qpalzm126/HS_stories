@@ -81,4 +81,10 @@ export const api = {
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(clean(payload)),
     }).then(toJson),
+  draftFromText: (payload) =>
+    fetch(`${BASE}/admin/draft-from-text`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(clean(payload)),
+    }).then(toJson),
 }

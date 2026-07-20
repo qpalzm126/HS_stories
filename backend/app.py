@@ -157,6 +157,23 @@ def admin_draft(req: DraftReq):
     return {"message_count": len(msgs), "draft": draft}
 
 
+class DraftFromTextReq(BaseModel):
+    text: str
+    instructions: str | None = None
+
+
+@app.post("/api/admin/draft-from-text", dependencies=[Depends(require_admin)])
+def admin_draft_from_text(req: DraftFromTextReq):
+    """複製貼上捷徑：直接把貼上的一段對話文字產成草稿（不經匯入與訊息挑選）。"""
+    if not req.text or not req.text.strip():
+        raise HTTPException(400, "請貼上要產生草稿的內容")
+    try:
+        draft = summarizer.draft_from_text(req.text, instructions=req.instructions)
+    except summarizer.SummarizerError as e:
+        raise HTTPException(503, str(e))
+    return {"draft": draft}
+
+
 class ArticleIn(BaseModel):
     id: int | None = None
     title: str
