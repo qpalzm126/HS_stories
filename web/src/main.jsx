@@ -5,6 +5,7 @@ import './styles.css'
 
 import Home from './pages/Home.jsx'
 import Article from './pages/Article.jsx'
+import Calendar from './pages/Calendar.jsx'
 import Login from './pages/admin/Login.jsx'
 import Dashboard from './pages/admin/Dashboard.jsx'
 import Editor from './pages/admin/Editor.jsx'
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/article/:slug" element={<Article />} />
         <Route path="/admin/login" element={<Login />} />
         <Route path="/admin" element={<RequireAuth><Dashboard /></RequireAuth>} />

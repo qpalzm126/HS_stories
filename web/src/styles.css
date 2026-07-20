@@ -69,6 +69,33 @@ a:hover { text-decoration: underline; }
 .card-body p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
 
 .site-foot { text-align: center; margin-top: 48px; color: var(--muted); font-size: 13px; }
+.site-nav { margin: 10px 0 0; }
+.site-nav a { font-size: 14px; }
+
+/* ---------- 日曆 ---------- */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 14px; }
+.cal-title { font-size: 18px; font-weight: 600; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-wd { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0 4px; }
+.cal-cell {
+  min-height: 78px; border: 1px solid var(--border); border-radius: 10px; padding: 6px;
+  background: var(--panel); display: flex; flex-direction: column; gap: 4px;
+}
+.cal-cell.empty { border: none; background: transparent; min-height: 0; }
+.cal-cell.has { border-color: var(--accent); }
+.cal-cell.today .cal-day { color: var(--accent); font-weight: 700; }
+.cal-day { font-size: 13px; color: var(--muted); }
+.cal-story {
+  font-size: 12px; line-height: 1.3; color: var(--text); background: var(--chip);
+  border-radius: 6px; padding: 3px 6px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cal-story:hover { text-decoration: none; background: var(--accent); color: #fff; }
+@media (max-width: 600px) {
+  .cal-grid { gap: 4px; }
+  .cal-cell { min-height: 62px; padding: 4px; border-radius: 8px; }
+  .cal-story { font-size: 11px; padding: 2px 4px; }
+}
 
 /* 閱讀頁 */
 .reading .back { display: inline-block; margin-bottom: 16px; font-size: 14px; }
