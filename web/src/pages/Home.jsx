@@ -26,7 +26,6 @@ export default function Home() {
     <div className="site">
       <header className="site-head">
         <h1>聖靈故事</h1>
-        <p className="tagline">見證神的作為</p>
         <p className="site-nav"><Link to="/calendar">📅 日曆瀏覽</Link></p>
       </header>
 
