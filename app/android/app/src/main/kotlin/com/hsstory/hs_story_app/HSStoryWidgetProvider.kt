@@ -21,7 +21,6 @@ import org.json.JSONArray
  * 互動：
  *  - 整塊點擊 → ACTION_VIEW 開啟該篇文章網址。
  *  - ◀ / ▶   → 廣播給自己，切換 index 後重繪（純 widget、離線）。
- *  - 🔊 朗讀  → 開啟 App 到該篇（hsstory://speak?slug=…）並自動朗讀全文。
  * 內文顯示該篇全文（去 Markdown）；widget 可放大看更多。
  */
 class HSStoryWidgetProvider : HomeWidgetProvider() {
@@ -122,10 +121,6 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
         }
         views.setOnClickPendingIntent(R.id.widget_prev, broadcast(context, ACTION_PREV, 1))
         views.setOnClickPendingIntent(R.id.widget_next, broadcast(context, ACTION_NEXT, 2))
-
-        val slug = a.optString("slug", "")
-        val speakUri = Uri.parse("hsstory://speak?slug=" + Uri.encode(slug))
-        views.setOnClickPendingIntent(R.id.widget_speak, launchApp(context, 400 + widgetId, speakUri))
         return views
     }
 

@@ -68,9 +68,10 @@
 
         <TextView
             android:id="@+id/widget_prev"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:minWidth="54dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
             android:gravity="center"
@@ -80,26 +81,11 @@
             android:textColor="#2B2620" />
 
         <TextView
-            android:id="@+id/widget_speak"
+            android:id="@+id/widget_next"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:paddingTop="9dp"
-            android:paddingBottom="9dp"
-            android:gravity="center"
-            android:background="@drawable/widget_btn_accent"
-            android:text="🔊 朗讀"
-            android:textStyle="bold"
-            android:textSize="15sp"
-            android:textColor="#FFFFFF" />
-
-        <TextView
-            android:id="@+id/widget_next"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minWidth="54dp"
+            android:layout_marginStart="6dp"
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
             android:gravity="center"
