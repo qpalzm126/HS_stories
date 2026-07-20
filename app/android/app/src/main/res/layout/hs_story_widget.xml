@@ -44,23 +44,25 @@
         android:textColor="#2B2620"
         android:text="最新聖靈故事" />
 
+    <!-- 內文：顯示全文（widget 可放大看更多；很長的故事點標題開全文/用朗讀） -->
     <TextView
-        android:id="@+id/widget_excerpt"
+        android:id="@+id/widget_body"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
-        android:maxLines="2"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:maxLines="40"
         android:ellipsize="end"
         android:lineSpacingExtra="2dp"
         android:textSize="15sp"
-        android:textColor="#6E6A5F"
+        android:textColor="#3A362E"
         android:text="開啟 App 載入最新故事" />
 
     <!-- 控制列：◀　🔊 朗讀　▶ -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:orientation="horizontal"
         android:gravity="center">
 
