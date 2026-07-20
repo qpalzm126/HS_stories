@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
 import org.json.JSONArray
@@ -21,7 +23,7 @@ import org.json.JSONArray
  * 互動：
  *  - 整塊點擊 → ACTION_VIEW 開啟該篇文章網址。
  *  - ◀ / ▶   → 廣播給自己，切換 index 後重繪（純 widget、離線）。
- * 內文顯示該篇全文（去 Markdown）；widget 可放大看更多。
+ * 內文顯示該篇全文（去 Markdown）；API 31+ 可在 widget 內捲動。
  */
 class HSStoryWidgetProvider : HomeWidgetProvider() {
 
@@ -95,8 +97,8 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
 
         if (articles.length() == 0) {
             views.setTextViewText(R.id.widget_title, "聖靈故事")
-            views.setTextViewText(R.id.widget_body, "開啟 App 載入最新故事")
             views.setTextViewText(R.id.widget_pos, "")
+            showPlainBody(views, "開啟 App 載入最新故事")
             views.setOnClickPendingIntent(R.id.widget_root, launchApp(context, 300 + widgetId, null))
             return views
         }
@@ -106,10 +108,7 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
         views.setTextViewText(R.id.widget_pos, "${index + 1}/${articles.length()}")
 
         val body = stripMarkdown(a.optString("body", ""))
-        views.setTextViewText(
-            R.id.widget_body,
-            if (body.isNotBlank()) body else a.optString("excerpt", "")
-        )
+        setBody(context, views, if (body.isNotBlank()) body else a.optString("excerpt", ""))
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         val url = a.optString("url", "")
@@ -122,6 +121,35 @@ class HSStoryWidgetProvider : HomeWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_prev, broadcast(context, ACTION_PREV, 1))
         views.setOnClickPendingIntent(R.id.widget_next, broadcast(context, ACTION_NEXT, 2))
         return views
+    }
+
+    /**
+     * 顯示內文。API 31+ 用可捲動 ListView（逐段一列，直接把列塞進 RemoteViews，
+     * 不走 RemoteViewsService）；舊系統退回不可捲的 TextView。
+     */
+    private fun setBody(context: Context, views: RemoteViews, text: String) {
+        val paras = text.split(Regex("\n+")).map { it.trim() }.filter { it.isNotEmpty() }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && paras.isNotEmpty()) {
+            val builder = RemoteViews.RemoteCollectionItems.Builder()
+            paras.forEachIndexed { i, p ->
+                val row = RemoteViews(context.packageName, R.layout.widget_body_row)
+                row.setTextViewText(R.id.widget_body_line, p)
+                builder.addItem(i.toLong(), row)
+            }
+            builder.setViewTypeCount(1)
+            builder.setHasStableIds(true)
+            views.setRemoteAdapter(R.id.widget_body_list, builder.build())
+            views.setViewVisibility(R.id.widget_body_list, View.VISIBLE)
+            views.setViewVisibility(R.id.widget_body, View.GONE)
+        } else {
+            showPlainBody(views, text)
+        }
+    }
+
+    private fun showPlainBody(views: RemoteViews, text: String) {
+        views.setTextViewText(R.id.widget_body, text)
+        views.setViewVisibility(R.id.widget_body, View.VISIBLE)
+        views.setViewVisibility(R.id.widget_body_list, View.GONE)
     }
 
     private fun broadcast(context: Context, action: String, req: Int): PendingIntent {
