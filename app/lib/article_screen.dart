@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api.dart';
@@ -9,10 +10,13 @@ import 'theme.dart';
 /// 文章詳情：抓 /api/articles/{slug} 全文，以 Markdown 呈現。
 ///
 /// [preview] 為列表帶入的部分資料，讓標題/封面先顯示，內文載入中不空白。
+/// [autoPlay] 為 true 時（widget 的 🔊 開啟）載入後自動朗讀。
 class ArticleScreen extends StatefulWidget {
   final String slug;
   final Article? preview;
-  const ArticleScreen({super.key, required this.slug, this.preview});
+  final bool autoPlay;
+  const ArticleScreen(
+      {super.key, required this.slug, this.preview, this.autoPlay = false});
 
   @override
   State<ArticleScreen> createState() => _ArticleScreenState();
@@ -20,12 +24,69 @@ class ArticleScreen extends StatefulWidget {
 
 class _ArticleScreenState extends State<ArticleScreen> {
   final _api = Api();
+  final FlutterTts _tts = FlutterTts();
+  late final Future<void> _ttsReady;
   late Future<Article> _future;
+  Article? _article;
+  bool _speaking = false;
 
   @override
   void initState() {
     super.initState();
+    _ttsReady = _initTts();
     _future = _api.fetchArticle(widget.slug);
+    _future.then((a) {
+      if (!mounted) return;
+      _article = a;
+      if (widget.autoPlay) _speak(a);
+    }).catchError((_) {});
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage('zh-TW');
+    await _tts.setSpeechRate(0.5); // 中文放慢一點較清楚
+    await _tts.awaitSpeakCompletion(true);
+    _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _speaking = false);
+    });
+    _tts.setCancelHandler(() {
+      if (mounted) setState(() => _speaking = false);
+    });
+    _tts.setErrorHandler((_) {
+      if (mounted) setState(() => _speaking = false);
+    });
+  }
+
+  Future<void> _toggleSpeak() async {
+    if (_speaking) {
+      await _tts.stop();
+      if (mounted) setState(() => _speaking = false);
+      return;
+    }
+    final a = _article;
+    if (a != null) _speak(a);
+  }
+
+  Future<void> _speak(Article a) async {
+    await _ttsReady;
+    final text = _speechText(a.title, a.body ?? a.excerpt ?? '');
+    if (text.trim().isEmpty) return;
+    if (mounted) setState(() => _speaking = true);
+    await _tts.stop();
+    await _tts.speak(text);
+  }
+
+  void _reload() {
+    setState(() => _future = _api.fetchArticle(widget.slug));
+    _future.then((a) {
+      if (mounted) _article = a;
+    }).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
   }
 
   @override
@@ -33,6 +94,13 @@ class _ArticleScreenState extends State<ArticleScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.preview?.title ?? '聖靈故事'),
+        actions: [
+          IconButton(
+            tooltip: _speaking ? '停止朗讀' : '朗讀',
+            icon: Icon(_speaking ? Icons.stop_circle : Icons.volume_up),
+            onPressed: _toggleSpeak,
+          ),
+        ],
       ),
       body: FutureBuilder<Article>(
         future: _future,
@@ -50,8 +118,7 @@ class _ArticleScreenState extends State<ArticleScreen> {
                     Text('${snap.error}', textAlign: TextAlign.center),
                     const SizedBox(height: 16),
                     FilledButton(
-                      onPressed: () => setState(
-                          () => _future = _api.fetchArticle(widget.slug)),
+                      onPressed: _reload,
                       child: const Text('重試'),
                     ),
                   ],
@@ -117,6 +184,22 @@ class _ArticleScreenState extends State<ArticleScreen> {
       ),
     );
   }
+}
+
+/// 把標題 + Markdown 內文整理成適合朗讀的純文字（去標記、換行轉停頓）。
+String _speechText(String title, String md) {
+  var t = md
+      .replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), '') // 圖片
+      .replaceAllMapped(
+          RegExp(r'\[([^\]]*)\]\([^)]*\)'), (m) => m[1] ?? '') // 連結→文字
+      .replaceAll(RegExp(r'^\s{0,3}#{1,6}\s*', multiLine: true), '') // 標題符號
+      .replaceAll(RegExp(r'^\s{0,3}[-*+]\s+', multiLine: true), '') // 清單符號
+      .replaceAll(RegExp(r'^\s{0,3}>\s?', multiLine: true), '') // 引言符號
+      .replaceAll(RegExp(r'[*`_]'), '')
+      .replaceAll(RegExp(r'[ \t]+'), ' ')
+      .replaceAll(RegExp(r'\n{2,}'), '。\n') // 段落間停頓
+      .trim();
+  return '$title。\n$t';
 }
 
 /// 閱讀排版：對齊 web 的 .prose（段距、金色左邊框引言、連結色）。

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget 朗讀鍵：溫暖金圓角，對齊 web 的 accent 色 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#B9852B" />
+    <corners android:radius="10dp" />
+</shape>

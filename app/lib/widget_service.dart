@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:home_widget/home_widget.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -14,15 +16,29 @@ const String kRefreshUniqueName = 'hs-story.refresh-latest.periodic';
 Future<void> updateHomeWidget({Api? api}) async {
   await HomeWidget.setAppGroupId(Config.appGroupId);
 
-  final article = await (api ?? Api()).fetchLatest();
-  if (article == null) return; // 尚無已發佈文章，維持現狀
+  final articles = await (api ?? Api()).fetchArticles(limit: 10);
+  if (articles.isEmpty) return; // 尚無已發佈文章，維持現狀
 
-  await HomeWidget.saveWidgetData<String>(Config.kTitle, article.title);
+  // Android widget 左右切換用：最新 N 篇（不含 body；朗讀時 App 才抓全文）。
+  final list = articles
+      .map((a) => {
+            'title': a.title,
+            'excerpt': a.excerpt ?? '',
+            'url': a.url ?? '',
+            'slug': a.slug,
+            'date': a.publishedAt ?? '',
+          })
+      .toList();
+  await HomeWidget.saveWidgetData<String>(Config.kArticles, jsonEncode(list));
+
+  // 保留單篇 key（iOS widget 讀這組；Android 空清單時的後備）＝最新一篇。
+  final latest = articles.first;
+  await HomeWidget.saveWidgetData<String>(Config.kTitle, latest.title);
   await HomeWidget.saveWidgetData<String>(
-      Config.kExcerpt, article.excerpt ?? '');
-  await HomeWidget.saveWidgetData<String>(Config.kUrl, article.url ?? '');
+      Config.kExcerpt, latest.excerpt ?? '');
+  await HomeWidget.saveWidgetData<String>(Config.kUrl, latest.url ?? '');
   await HomeWidget.saveWidgetData<String>(
-      Config.kPublishedAt, article.publishedAt ?? '');
+      Config.kPublishedAt, latest.publishedAt ?? '');
 
   await HomeWidget.updateWidget(
     iOSName: Config.iOSWidgetName,

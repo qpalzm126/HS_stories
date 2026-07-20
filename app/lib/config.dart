@@ -32,4 +32,8 @@ class Config {
   static const String kExcerpt = 'hs_excerpt';
   static const String kUrl = 'hs_url';
   static const String kPublishedAt = 'hs_published_at';
+
+  /// Android widget 左右切換用：最新 N 篇的 JSON 陣列
+  /// （每筆 title/excerpt/url/slug/date）。iOS 仍讀上面的單篇 key。
+  static const String kArticles = 'hs_articles';
 }

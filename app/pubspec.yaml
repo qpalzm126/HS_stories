@@ -26,6 +26,9 @@ dependencies:
   # App 內以 Markdown 呈現文章內文（/api/articles/{slug} 的 body）
   flutter_markdown: ^0.7.1
 
+  # 文章朗讀（TTS）；widget 的 🔊 會開 App 到該篇並自動朗讀全文
+  flutter_tts: ^4.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
