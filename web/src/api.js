@@ -61,7 +61,12 @@ export const api = {
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(a),
     }).then(toJson),
-  publish: (id) => fetch(`${BASE}/admin/articles/${id}/publish`, { method: 'POST', headers: authHeaders() }).then(toJson),
+  publish: (id, publishedAt) =>
+    fetch(`${BASE}/admin/articles/${id}/publish`, {
+      method: 'POST',
+      headers: publishedAt ? authHeaders({ 'Content-Type': 'application/json' }) : authHeaders(),
+      body: publishedAt ? JSON.stringify({ published_at: publishedAt }) : undefined,
+    }).then(toJson),
   unpublish: (id) => fetch(`${BASE}/admin/articles/${id}/unpublish`, { method: 'POST', headers: authHeaders() }).then(toJson),
   remove: (id) => fetch(`${BASE}/admin/articles/${id}`, { method: 'DELETE', headers: authHeaders() }).then(toJson),
 

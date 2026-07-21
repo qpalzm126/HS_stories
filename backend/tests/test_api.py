@@ -56,6 +56,22 @@ def test_publish_uses_orig_date_from_source_ref(client):
     assert r["published_at"] == "2020-01-01T00:00:00"
 
 
+def test_can_change_publish_time_of_published_article(client):
+    """已發佈文章可再帶新的 published_at 覆蓋（後台『更新發佈時間』）。"""
+    h = _auth(client)
+    a = client.post("/api/admin/articles", json={"title": "改時間", "body": "x"}, headers=h).json()
+    # 先發佈（無指定 → 現在時間）
+    p1 = client.post(f"/api/admin/articles/{a['id']}/publish", headers=h).json()
+    assert p1["status"] == "published"
+    # 已發佈狀態下，再帶明確時間 → 覆蓋
+    p2 = client.post(
+        f"/api/admin/articles/{a['id']}/publish",
+        json={"published_at": "2025-05-05T09:00:00"}, headers=h,
+    ).json()
+    assert p2["status"] == "published"
+    assert p2["published_at"] == "2025-05-05T09:00:00"
+
+
 def test_admin_articles_search_and_pagination(client):
     h = _auth(client)
     for i in range(25):
