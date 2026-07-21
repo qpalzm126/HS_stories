@@ -17,9 +17,40 @@ export default function Ingest() {
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
+  const [models, setModels] = useState([])
+  const [model, setModel] = useState('')
+  const [modelsBusy, setModelsBusy] = useState(false)
+  const [modelsErr, setModelsErr] = useState('')
+
+  // 向後端即時查詢可用模型；若目前選的 model 已被淘汰，自動改回預設或第一個。
+  // 回傳 { list, selected } 供產生草稿時直接帶入最新選擇。
+  async function refreshModels() {
+    setModelsBusy(true)
+    setModelsErr('')
+    try {
+      const r = await api.models()
+      const list = r.models || []
+      setModels(list)
+      const names = list.map((m) => m.name)
+      const selected =
+        model && names.includes(model)
+          ? model
+          : r.default && names.includes(r.default)
+            ? r.default
+            : names[0] || ''
+      setModel(selected)
+      return { list, selected }
+    } catch (e) {
+      setModelsErr(String(e.message || e))
+      return { list: models, selected: model }
+    } finally {
+      setModelsBusy(false)
+    }
+  }
 
   useEffect(() => {
     api.conversations().then(setConvs).catch(() => {})
+    refreshModels()
   }, [])
   useEffect(() => {
     api.senders(f.conversation).then(setSenders).catch(() => setSenders([]))
@@ -83,7 +114,8 @@ export default function Ingest() {
     }
     setBusy('paste')
     try {
-      const r = await api.draftFromText({ text: pasteText, instructions: pasteInstructions })
+      const { selected: selectedModel } = await refreshModels() // 產生前更新可用模型清單
+      const r = await api.draftFromText({ text: pasteText, instructions: pasteInstructions, model: selectedModel })
       const d = r.draft
       const saved = await api.saveArticle({
         title: d.title,
@@ -109,10 +141,11 @@ export default function Ingest() {
     if (!window.confirm(`將把 ${count} 則訊息送到 AI 產生文章草稿，是否繼續？`)) return
     setBusy('draft')
     try {
+      const { selected: selectedModel } = await refreshModels() // 產生前更新可用模型清單
       const payload =
         selected.size > 0
-          ? { message_ids: [...selected], instructions }
-          : { ...withTime(), instructions }
+          ? { message_ids: [...selected], instructions, model: selectedModel }
+          : { ...withTime(), instructions, model: selectedModel }
       const r = await api.draft(payload)
       const d = r.draft
       const saved = await api.saveArticle({
@@ -134,6 +167,26 @@ export default function Ingest() {
       <div className="admin-head">
         <Link to="/admin" className="back">← 文章管理</Link>
         <h1>從 LINE 產生文章</h1>
+      </div>
+
+      <div className="model-bar">
+        <label htmlFor="ai-model">AI 模型</label>
+        <select
+          id="ai-model"
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          disabled={modelsBusy || models.length === 0}
+        >
+          {models.length === 0 && <option value="">（載入中…）</option>}
+          {models.map((m) => (
+            <option key={m.name} value={m.name}>{m.label || m.name}</option>
+          ))}
+        </select>
+        <button className="btn sm" type="button" onClick={refreshModels} disabled={modelsBusy}>
+          {modelsBusy ? '更新中…' : '↻ 重新整理'}
+        </button>
+        <span className="muted small">產生草稿前會自動抓取最新可用模型</span>
+        {modelsErr && <span className="error small">{modelsErr}</span>}
       </div>
 
       <div className="paste-draft">

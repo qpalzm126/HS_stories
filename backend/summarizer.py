@@ -21,6 +21,12 @@ DRAFT_MODEL = os.environ.get("HS_DRAFT_MODEL", "gemini-2.5-flash")
 
 CHUNK_CHARS = 12000
 
+# 列出可用 model 時，排除非「文字改寫」用途者（語音、影像、機器人等），只留 Gemini/Gemma 對話模型。
+_MODEL_EXCLUDE = (
+    "tts", "image", "audio", "embedding", "robotics", "computer-use",
+    "lyria", "nano-banana", "deep-research", "antigravity", "omni", "aqa", "vision",
+)
+
 
 class SummarizerError(Exception):
     pass
@@ -57,6 +63,36 @@ def _client() -> genai.Client:
     return genai.Client(api_key=key)
 
 
+def _is_text_model(short_name: str) -> bool:
+    n = short_name.lower()
+    if not (n.startswith("gemini") or n.startswith("gemma")):
+        return False
+    return not any(bad in n for bad in _MODEL_EXCLUDE)
+
+
+def list_generate_models() -> dict:
+    """向 Gemini API 即時查詢目前可用、且支援 generateContent 的文字模型清單。
+
+    回傳 {"models": [{"name", "label"}...], "default": DRAFT_MODEL}。
+    供後台在產生草稿前更新「可選 model」用（模型會隨時間新增/淘汰）。
+    """
+    client = _client()
+    try:
+        raw = list(client.models.list())
+    except Exception as e:  # 網路 / 金鑰 / 配額等
+        raise SummarizerError(f"取得可用模型清單失敗：{e}")
+
+    models = []
+    for m in raw:
+        if "generateContent" not in (m.supported_actions or []):
+            continue
+        short = (m.name or "").rsplit("/", 1)[-1]
+        if not short or not _is_text_model(short):
+            continue
+        models.append({"name": short, "label": m.display_name or short})
+    return {"models": models, "default": DRAFT_MODEL}
+
+
 def format_messages(messages: list[dict]) -> str:
     lines = []
     for m in messages:
@@ -78,9 +114,9 @@ def _chunk(text: str, budget: int = CHUNK_CHARS) -> list[str]:
     return chunks
 
 
-def _map_chunk(client: genai.Client, chunk: str) -> str:
+def _map_chunk(client: genai.Client, chunk: str, model: str) -> str:
     resp = client.models.generate_content(
-        model=MAP_MODEL,
+        model=model,
         contents=chunk,
         config=types.GenerateContentConfig(
             system_instruction=_MAP_SYSTEM,
@@ -92,15 +128,15 @@ def _map_chunk(client: genai.Client, chunk: str) -> str:
     return (resp.text or "").strip()
 
 
-def _condense(client: genai.Client, text: str) -> str:
+def _condense(client: genai.Client, text: str, model: str) -> str:
     """把來源文字整理成適合改寫的來源：短則原樣、長則分段濃縮（map-reduce）。"""
     if len(text) <= CHUNK_CHARS:
         return text
-    parts = [_map_chunk(client, c) for c in _chunk(text)]
+    parts = [_map_chunk(client, c, model) for c in _chunk(text)]
     return "以下是對話各段的濃縮：\n\n" + "\n\n".join(f"[片段 {i + 1}]\n{p}" for i, p in enumerate(parts))
 
 
-def _generate_draft(client: genai.Client, source: str, instructions: str | None) -> dict:
+def _generate_draft(client: genai.Client, source: str, instructions: str | None, model: str) -> dict:
     """把整理好的來源文字送 Gemini 改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。"""
     user = source
     if instructions:
@@ -108,7 +144,7 @@ def _generate_draft(client: genai.Client, source: str, instructions: str | None)
 
     try:
         resp = client.models.generate_content(
-            model=DRAFT_MODEL,
+            model=model,
             contents=user,
             config=types.GenerateContentConfig(
                 system_instruction=_DRAFT_SYSTEM,
@@ -134,24 +170,31 @@ def _generate_draft(client: genai.Client, source: str, instructions: str | None)
     return data
 
 
-def draft_article(messages: list[dict], instructions: str | None = None) -> dict:
-    """把選取的訊息改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。"""
+def draft_article(messages: list[dict], instructions: str | None = None, model: str | None = None) -> dict:
+    """把選取的訊息改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。
+
+    model：後台選定的 Gemini 模型；未指定時用環境變數預設值。
+    """
     if not messages:
         raise SummarizerError("沒有可用來產生草稿的訊息。")
     client = _client()
-    source = _condense(client, format_messages(messages))
-    return _generate_draft(client, source, instructions)
+    draft_model = model or DRAFT_MODEL
+    map_model = model or MAP_MODEL
+    source = _condense(client, format_messages(messages), map_model)
+    return _generate_draft(client, source, instructions, draft_model)
 
 
-def draft_from_text(text: str, instructions: str | None = None) -> dict:
+def draft_from_text(text: str, instructions: str | None = None, model: str | None = None) -> dict:
     """把貼上的一段對話（純文字）直接改寫成文章草稿，回傳 {title, excerpt, body_markdown, tags}。
 
     與 draft_article 的差別：不經過資料庫與訊息挑選，直接吃使用者貼上的原始文字，
-    供「複製貼上即產草稿」的捷徑使用。
+    供「複製貼上即產草稿」的捷徑使用。model 同 draft_article。
     """
     text = (text or "").strip()
     if not text:
         raise SummarizerError("沒有可用來產生草稿的內容。")
     client = _client()
-    source = _condense(client, text)
-    return _generate_draft(client, source, instructions)
+    draft_model = model or DRAFT_MODEL
+    map_model = model or MAP_MODEL
+    source = _condense(client, text, map_model)
+    return _generate_draft(client, source, instructions, draft_model)

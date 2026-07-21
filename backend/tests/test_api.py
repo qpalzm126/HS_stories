@@ -96,7 +96,7 @@ def test_full_publish_flow(client, monkeypatch):
     monkeypatch.setattr(
         summarizer,
         "draft_article",
-        lambda msgs, instructions=None: {
+        lambda msgs, instructions=None, model=None: {
             "title": "測試文章",
             "excerpt": "一句摘要",
             "body_markdown": "# 內文\n\n段落",
@@ -163,7 +163,7 @@ def test_draft_from_text_returns_draft(client, monkeypatch):
     monkeypatch.setattr(
         summarizer,
         "draft_from_text",
-        lambda text, instructions=None: {
+        lambda text, instructions=None, model=None: {
             "title": "貼上產生的文章",
             "excerpt": "摘要",
             "body_markdown": "# 內文",
@@ -188,3 +188,54 @@ def test_draft_from_text_empty_returns_400(client):
     h = _auth(client)
     r = client.post("/api/admin/draft-from-text", json={"text": "   "}, headers=h)
     assert r.status_code == 400
+
+
+def test_models_requires_token(client):
+    assert client.get("/api/admin/models").status_code == 401
+
+
+def test_models_lists_available(client, monkeypatch):
+    h = _auth(client)
+    monkeypatch.setattr(
+        summarizer,
+        "list_generate_models",
+        lambda: {
+            "models": [{"name": "gemini-3-flash-preview", "label": "Gemini 3 Flash Preview"}],
+            "default": "gemini-2.5-flash",
+        },
+    )
+    r = client.get("/api/admin/models", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["default"] == "gemini-2.5-flash"
+    assert body["models"][0]["name"] == "gemini-3-flash-preview"
+
+
+def test_models_without_api_key_returns_503(client, monkeypatch):
+    h = _auth(client)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    r = client.get("/api/admin/models", headers=h)
+    assert r.status_code == 503
+
+
+def test_draft_passes_selected_model(client, monkeypatch):
+    """後台選定的 model 應原樣傳進 summarizer。"""
+    h = _auth(client)
+    files = {"file": ("sample_export.txt", FIXTURE.read_bytes(), "text/plain")}
+    client.post("/api/admin/import", files=files, headers=h)
+
+    seen = {}
+    monkeypatch.setattr(
+        summarizer,
+        "draft_article",
+        lambda msgs, instructions=None, model=None: seen.update(model=model)
+        or {"title": "t", "excerpt": "e", "body_markdown": "b", "tags": []},
+    )
+    r = client.post(
+        "/api/admin/draft",
+        json={"conversation": "Alice", "model": "gemini-3-flash-preview"},
+        headers=h,
+    )
+    assert r.status_code == 200
+    assert seen["model"] == "gemini-3-flash-preview"

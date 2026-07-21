@@ -128,6 +128,15 @@ def admin_messages(
     return {"count": len(msgs), "messages": msgs}
 
 
+@app.get("/api/admin/models", dependencies=[Depends(require_admin)])
+def admin_models():
+    """即時查詢目前可用的 Gemini 文字模型（產生草稿前更新，因模型會新增/淘汰）。"""
+    try:
+        return summarizer.list_generate_models()
+    except summarizer.SummarizerError as e:
+        raise HTTPException(503, str(e))
+
+
 class DraftReq(BaseModel):
     message_ids: list[int] | None = None
     q: str | None = None
@@ -136,6 +145,7 @@ class DraftReq(BaseModel):
     date_from: str | None = None
     date_to: str | None = None
     instructions: str | None = None
+    model: str | None = None
     limit: int = MAX_DRAFT_MESSAGES
 
 
@@ -151,7 +161,7 @@ def admin_draft(req: DraftReq):
     if not msgs:
         raise HTTPException(404, "沒有可用來產生草稿的訊息")
     try:
-        draft = summarizer.draft_article(msgs, instructions=req.instructions)
+        draft = summarizer.draft_article(msgs, instructions=req.instructions, model=req.model)
     except summarizer.SummarizerError as e:
         raise HTTPException(503, str(e))
     return {"message_count": len(msgs), "draft": draft}
@@ -160,6 +170,7 @@ def admin_draft(req: DraftReq):
 class DraftFromTextReq(BaseModel):
     text: str
     instructions: str | None = None
+    model: str | None = None
 
 
 @app.post("/api/admin/draft-from-text", dependencies=[Depends(require_admin)])
@@ -168,7 +179,7 @@ def admin_draft_from_text(req: DraftFromTextReq):
     if not req.text or not req.text.strip():
         raise HTTPException(400, "請貼上要產生草稿的內容")
     try:
-        draft = summarizer.draft_from_text(req.text, instructions=req.instructions)
+        draft = summarizer.draft_from_text(req.text, instructions=req.instructions, model=req.model)
     except summarizer.SummarizerError as e:
         raise HTTPException(503, str(e))
     return {"draft": draft}
