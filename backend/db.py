@@ -357,11 +357,20 @@ def _admin_article_where(q: str | None, status: str | None):
     return where, params
 
 
-def list_articles_admin(q=None, status=None, limit=20, offset=0) -> list[dict]:
+# 後台列表可選排序（白名單，避免 SQL 注入）；發佈時間排序時把未發佈（NULL）排最後。
+_ADMIN_SORTS = {
+    "updated_desc": "COALESCE(updated_at, created_at) DESC",
+    "published_desc": "published_at IS NULL, published_at DESC",
+    "published_asc": "published_at IS NULL, published_at ASC",
+}
+DEFAULT_ADMIN_SORT = "updated_desc"
+
+
+def list_articles_admin(q=None, status=None, limit=20, offset=0, sort=None) -> list[dict]:
     where, params = _admin_article_where(q, status)
     params["limit"], params["offset"] = limit, offset
-    sql = (f"SELECT * FROM articles{where} "
-           "ORDER BY COALESCE(updated_at, created_at) DESC LIMIT :limit OFFSET :offset")
+    order = _ADMIN_SORTS.get(sort or DEFAULT_ADMIN_SORT, _ADMIN_SORTS[DEFAULT_ADMIN_SORT])
+    sql = f"SELECT * FROM articles{where} ORDER BY {order} LIMIT :limit OFFSET :offset"
     with connection() as con:
         return [dict(r) for r in con.execute(sql, params)]
 

@@ -56,6 +56,27 @@ def test_publish_uses_orig_date_from_source_ref(client):
     assert r["published_at"] == "2020-01-01T00:00:00"
 
 
+def test_admin_list_sort_by_published(client):
+    """後台列表可依發佈時間排序（未發佈排最後）。"""
+    h = _auth(client)
+    made = {}
+    for title, date in [("甲", "2024-01-01T00:00:00"), ("乙", "2026-06-01T00:00:00"), ("丙", "2025-03-01T00:00:00")]:
+        a = client.post("/api/admin/articles", json={"title": title, "body": "x"}, headers=h).json()
+        client.post(f"/api/admin/articles/{a['id']}/publish", json={"published_at": date}, headers=h)
+        made[title] = a["id"]
+    # 一篇草稿（未發佈）
+    client.post("/api/admin/articles", json={"title": "丁草稿", "body": "x"}, headers=h)
+
+    def titles(sort):
+        d = client.get("/api/admin/articles", params={"sort": sort}, headers=h).json()
+        return [it["title"] for it in d["items"]]
+
+    asc = titles("published_asc")
+    assert asc[:3] == ["甲", "丙", "乙"]  # 舊→新
+    assert asc[-1] == "丁草稿"            # 未發佈排最後
+    assert titles("published_desc")[:3] == ["乙", "丙", "甲"]  # 新→舊
+
+
 def test_can_change_publish_time_of_published_article(client):
     """已發佈文章可再帶新的 published_at 覆蓋（後台『更新發佈時間』）。"""
     h = _auth(client)

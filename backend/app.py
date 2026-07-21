@@ -203,12 +203,13 @@ def admin_save_article(a: ArticleIn):
 def admin_list_articles(
     q: str | None = None,
     status: str | None = None,
+    sort: str | None = None,
     limit: int = Query(20, le=500),
     offset: int = 0,
 ):
     return {
         "total": db.count_articles_admin(q=q, status=status),
-        "items": db.list_articles_admin(q=q, status=status, limit=limit, offset=offset),
+        "items": db.list_articles_admin(q=q, status=status, sort=sort, limit=limit, offset=offset),
     }
 
 

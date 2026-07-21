@@ -10,25 +10,26 @@ export default function Dashboard() {
   const [err, setErr] = useState('')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('') // '' = 全部
+  const [sort, setSort] = useState('updated_desc')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(() => Number(localStorage.getItem('hs_page_size')) || 20)
   const nav = useNavigate()
 
   const load = useCallback(() => {
     return api
-      .adminArticles({ q, status, limit: pageSize, offset: page * pageSize })
+      .adminArticles({ q, status, sort, limit: pageSize, offset: page * pageSize })
       .then((d) => {
         setItems(d.items)
         setTotal(d.total)
       })
       .catch((e) => setErr(String(e.message || e)))
-  }, [q, status, page, pageSize])
+  }, [q, status, sort, page, pageSize])
 
-  // 搜尋/篩選/每頁筆數改變時回到第 1 頁（用 debounce 讓打字不會每個字都打 API）
+  // 搜尋/篩選/排序/每頁筆數改變時回到第 1 頁（用 debounce 讓打字不會每個字都打 API）
   useEffect(() => {
     const t = setTimeout(() => setPage(0), 250)
     return () => clearTimeout(t)
-  }, [q, status, pageSize])
+  }, [q, status, sort, pageSize])
 
   useEffect(() => {
     load()
@@ -74,6 +75,14 @@ export default function Dashboard() {
           </select>
         </div>
         <div className="field">
+          <label>排序</label>
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="updated_desc">更新時間（新→舊）</option>
+            <option value="published_desc">發佈時間（新→舊）</option>
+            <option value="published_asc">發佈時間（舊→新）</option>
+          </select>
+        </div>
+        <div className="field">
           <label>每頁筆數</label>
           <select
             value={pageSize}
@@ -92,13 +101,14 @@ export default function Dashboard() {
         <>
           <table className="tbl">
             <thead>
-              <tr><th>標題</th><th>狀態</th><th>更新</th><th></th></tr>
+              <tr><th>標題</th><th>狀態</th><th>發佈</th><th>更新</th><th></th></tr>
             </thead>
             <tbody>
               {items.map((a) => (
                 <tr key={a.id}>
                   <td>{a.title}</td>
                   <td>{a.status === 'published' ? <span className="pill on">已發佈</span> : <span className="pill">草稿</span>}</td>
+                  <td className="muted">{(a.published_at || '').slice(0, 10) || '—'}</td>
                   <td className="muted">{(a.updated_at || '').slice(0, 10)}</td>
                   <td className="row-actions">
                     <Link className="btn sm" to={`/admin/edit/${a.id}`}>編輯</Link>
