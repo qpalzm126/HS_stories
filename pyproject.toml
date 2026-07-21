@@ -6,14 +6,13 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
-    "google-genai>=1.0",
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0",
     "itsdangerous>=2.1",
 ]
 
 # 測試才「直接」需要的套件：pytest 跑測試、httpx 供 starlette TestClient。
-# 正式映像用 `uv sync --no-dev`：pytest 不會裝入；httpx 仍會因 google-genai 相依而存在，屬正常。
+# 正式映像用 `uv sync --no-dev`：pytest / httpx 都不會裝入（產草稿已改純本地規則，不需外送 HTTP）。
 [dependency-groups]
 dev = [
     "pytest>=8.0",

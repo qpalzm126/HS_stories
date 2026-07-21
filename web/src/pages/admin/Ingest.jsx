@@ -10,47 +10,14 @@ export default function Ingest() {
   const [f, setF] = useState({ conversation: '', sender: '', q: '', date_from: '', date_to: '' })
   const [messages, setMessages] = useState(null)
   const [selected, setSelected] = useState(new Set())
-  const [instructions, setInstructions] = useState('')
   const [pasteText, setPasteText] = useState('')
-  const [pasteInstructions, setPasteInstructions] = useState('')
   const [pasteErr, setPasteErr] = useState('')
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
-  const [models, setModels] = useState([])
-  const [model, setModel] = useState('')
-  const [modelsBusy, setModelsBusy] = useState(false)
-  const [modelsErr, setModelsErr] = useState('')
-
-  // 向後端即時查詢可用模型；若目前選的 model 已被淘汰，自動改回預設或第一個。
-  // 回傳 { list, selected } 供產生草稿時直接帶入最新選擇。
-  async function refreshModels() {
-    setModelsBusy(true)
-    setModelsErr('')
-    try {
-      const r = await api.models()
-      const list = r.models || []
-      setModels(list)
-      const names = list.map((m) => m.name)
-      const selected =
-        model && names.includes(model)
-          ? model
-          : r.default && names.includes(r.default)
-            ? r.default
-            : names[0] || ''
-      setModel(selected)
-      return { list, selected }
-    } catch (e) {
-      setModelsErr(String(e.message || e))
-      return { list: models, selected: model }
-    } finally {
-      setModelsBusy(false)
-    }
-  }
 
   useEffect(() => {
     api.conversations().then(setConvs).catch(() => {})
-    refreshModels()
   }, [])
   useEffect(() => {
     api.senders(f.conversation).then(setSenders).catch(() => setSenders([]))
@@ -114,14 +81,14 @@ export default function Ingest() {
     }
     setBusy('paste')
     try {
-      const { selected: selectedModel } = await refreshModels() // 產生前更新可用模型清單
-      const r = await api.draftFromText({ text: pasteText, instructions: pasteInstructions, model: selectedModel })
+      const r = await api.draftFromText({ text: pasteText })
       const d = r.draft
       const saved = await api.saveArticle({
         title: d.title,
         excerpt: d.excerpt,
         body: d.body_markdown,
-        source_ref: JSON.stringify({ from: 'paste', chars: pasteText.length }),
+        // orig_date 放最前面，確保發佈時間不會被 source_ref 長度截斷
+        source_ref: JSON.stringify({ orig_date: d.orig_date || '', from: 'paste', chars: pasteText.length }),
       })
       nav(`/admin/edit/${saved.id}`)
     } catch (e) {
@@ -138,21 +105,21 @@ export default function Ingest() {
       setErr('請先搜尋並（可選）勾選要用的訊息。')
       return
     }
-    if (!window.confirm(`將把 ${count} 則訊息送到 AI 產生文章草稿，是否繼續？`)) return
+    if (!window.confirm(`將把 ${count} 則訊息產成文章草稿，是否繼續？`)) return
     setBusy('draft')
     try {
-      const { selected: selectedModel } = await refreshModels() // 產生前更新可用模型清單
       const payload =
         selected.size > 0
-          ? { message_ids: [...selected], instructions, model: selectedModel }
-          : { ...withTime(), instructions, model: selectedModel }
+          ? { message_ids: [...selected] }
+          : withTime()
       const r = await api.draft(payload)
       const d = r.draft
       const saved = await api.saveArticle({
         title: d.title,
         excerpt: d.excerpt,
         body: d.body_markdown,
-        source_ref: JSON.stringify(payload).slice(0, 500),
+        // 保持精簡且為合法 JSON（orig_date 放最前面，避免被截斷）
+        source_ref: JSON.stringify({ orig_date: d.orig_date || '', from: 'messages', count }),
       })
       nav(`/admin/edit/${saved.id}`)
     } catch (e) {
@@ -169,46 +136,21 @@ export default function Ingest() {
         <h1>從 LINE 產生文章</h1>
       </div>
 
-      <div className="model-bar">
-        <label htmlFor="ai-model">AI 模型</label>
-        <select
-          id="ai-model"
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          disabled={modelsBusy || models.length === 0}
-        >
-          {models.length === 0 && <option value="">（載入中…）</option>}
-          {models.map((m) => (
-            <option key={m.name} value={m.name}>{m.label || m.name}</option>
-          ))}
-        </select>
-        <button className="btn sm" type="button" onClick={refreshModels} disabled={modelsBusy}>
-          {modelsBusy ? '更新中…' : '↻ 重新整理'}
-        </button>
-        <span className="muted small">產生草稿前會自動抓取最新可用模型</span>
-        {modelsErr && <span className="error small">{modelsErr}</span>}
-      </div>
-
       <div className="paste-draft">
         <div className="ingest-step">
-          <b>✨ 快速：直接貼上對話 → 產生草稿</b>
-          <span className="muted small">不必匯入檔案，把一段 LINE 對話貼進來即可</span>
+          <b>✨ 快速：直接貼上內容 → 產生草稿</b>
+          <span className="muted small">標題取自內容夾帶的編號、內文照原文、預覽取開頭前幾句</span>
         </div>
         <textarea
           className="paste-box"
           rows={8}
-          placeholder={'把要改寫成文章的對話內容貼在這裡…\n（可直接從 LINE 複製一段訊息貼上）'}
+          placeholder={'把內容貼在這裡…\n（可直接從 LINE 複製一則訊息貼上，會夾帶「年份聖靈故事編號」）'}
           value={pasteText}
           onChange={(e) => setPasteText(e.target.value)}
         />
         <div className="draft-gen">
-          <input
-            placeholder="給 AI 的額外指示（選填），例如：以第一人稱、加上經文出處"
-            value={pasteInstructions}
-            onChange={(e) => setPasteInstructions(e.target.value)}
-          />
           <button className="btn primary" disabled={!!busy || !pasteText.trim()} onClick={generateFromPaste}>
-            {busy === 'paste' ? 'AI 產生中…' : '貼上內容產生草稿'}
+            {busy === 'paste' ? '產生中…' : '貼上內容產生草稿'}
           </button>
         </div>
         {pasteErr && <p className="error">{pasteErr}</p>}
@@ -287,13 +229,8 @@ export default function Ingest() {
         <b>3. 產生草稿</b>
       </div>
       <div className="draft-gen">
-        <input
-          placeholder="給 AI 的額外指示（選填），例如：以第一人稱、加上經文出處"
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-        />
         <button className="btn primary" disabled={!!busy} onClick={generate}>
-          {busy === 'draft' ? 'AI 產生中…' : '產生文章草稿'}
+          {busy === 'draft' ? '產生中…' : '產生文章草稿'}
         </button>
       </div>
     </div>

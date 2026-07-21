@@ -75,7 +75,6 @@ export const api = {
   senders: (c) =>
     fetch(`${BASE}/admin/senders${c ? `?conversation=${encodeURIComponent(c)}` : ''}`, { headers: authHeaders() }).then(toJson),
   messages: (f) => fetch(`${BASE}/admin/messages?` + new URLSearchParams(clean(f)), { headers: authHeaders() }).then(toJson),
-  models: () => fetch(`${BASE}/admin/models`, { headers: authHeaders() }).then(toJson),
   draft: (payload) =>
     fetch(`${BASE}/admin/draft`, {
       method: 'POST',

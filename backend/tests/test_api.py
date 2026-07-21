@@ -92,11 +92,11 @@ def test_full_publish_flow(client, monkeypatch):
     r = client.get("/api/admin/messages", params={"q": "會議記錄"}, headers=h)
     assert r.status_code == 200 and r.json()["count"] >= 1
 
-    # 3. 產草稿（mock 掉 Gemini）
+    # 3. 產草稿（mock 掉解析，聚焦發佈流程）
     monkeypatch.setattr(
         summarizer,
         "draft_article",
-        lambda msgs, instructions=None, model=None: {
+        lambda msgs: {
             "title": "測試文章",
             "excerpt": "一句摘要",
             "body_markdown": "# 內文\n\n段落",
@@ -141,42 +141,40 @@ def test_full_publish_flow(client, monkeypatch):
     assert r.status_code == 200 and len(r.json()) == 1
 
 
-def test_draft_without_api_key_returns_503(client, monkeypatch):
-    h = _auth(client)
-    files = {"file": ("sample_export.txt", FIXTURE.read_bytes(), "text/plain")}
-    client.post("/api/admin/import", files=files, headers=h)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-    r = client.post("/api/admin/draft", json={"conversation": "Alice"}, headers=h)
-    assert r.status_code == 503
-
-
 def test_draft_no_messages_returns_404(client):
     h = _auth(client)
     r = client.post("/api/admin/draft", json={"conversation": "不存在"}, headers=h)
     assert r.status_code == 404
 
 
-def test_draft_from_text_returns_draft(client, monkeypatch):
-    """複製貼上捷徑：貼一段文字直接產草稿（mock 掉 Gemini），不需匯入。"""
+def test_draft_from_text_parses_title_body_excerpt(client):
+    """複製貼上捷徑（純規則）：標題取自夾帶編號、日期轉 orig_date、內文去掉標題與日期。"""
     h = _auth(client)
-    monkeypatch.setattr(
-        summarizer,
-        "draft_from_text",
-        lambda text, instructions=None, model=None: {
-            "title": "貼上產生的文章",
-            "excerpt": "摘要",
-            "body_markdown": "# 內文",
-            "tags": [],
-        },
-    )
-    r = client.post(
-        "/api/admin/draft-from-text",
-        json={"text": "15:20\tAlice\t今天很感恩，分享一個見證"},
-        headers=h,
-    )
+    text = "2026年聖靈故事126(20260721) 大家辛苦了。 今天要分享一個見證，願榮耀歸於神。"
+    r = client.post("/api/admin/draft-from-text", json={"text": text}, headers=h)
     assert r.status_code == 200
-    assert r.json()["draft"]["title"] == "貼上產生的文章"
+    d = r.json()["draft"]
+    assert d["title"] == "2026年聖靈故事126"
+    assert d["orig_date"] == "2026-07-21T00:00:00"
+    assert "聖靈故事" not in d["body_markdown"] and "20260721" not in d["body_markdown"]
+    assert d["body_markdown"].startswith("大家辛苦了。")
+    assert d["excerpt"].startswith("大家辛苦了。")
+
+
+def test_paste_publish_uses_orig_date_from_content(client):
+    """整條鏈路：貼上帶日期的內容 → 存成文章（source_ref 帶 orig_date）→ 發佈時間貼合原文。"""
+    import json as _json
+    h = _auth(client)
+    text = "2026年聖靈故事126(20260721) 大家辛苦了。今天分享見證。"
+    d = client.post("/api/admin/draft-from-text", json={"text": text}, headers=h).json()["draft"]
+    a = client.post(
+        "/api/admin/articles",
+        json={"title": d["title"], "body": d["body_markdown"], "excerpt": d["excerpt"],
+              "source_ref": _json.dumps({"orig_date": d["orig_date"], "from": "paste"})},
+        headers=h,
+    ).json()
+    r = client.post(f"/api/admin/articles/{a['id']}/publish", headers=h).json()
+    assert r["published_at"] == "2026-07-21T00:00:00"
 
 
 def test_draft_from_text_requires_token(client):
@@ -190,52 +188,41 @@ def test_draft_from_text_empty_returns_400(client):
     assert r.status_code == 400
 
 
-def test_models_requires_token(client):
-    assert client.get("/api/admin/models").status_code == 401
+# ---- summarizer 純規則解析 -----------------------------------------------------
 
 
-def test_models_lists_available(client, monkeypatch):
-    h = _auth(client)
-    monkeypatch.setattr(
-        summarizer,
-        "list_generate_models",
-        lambda: {
-            "models": [{"name": "gemini-3-flash-preview", "label": "Gemini 3 Flash Preview"}],
-            "default": "gemini-2.5-flash",
-        },
-    )
-    r = client.get("/api/admin/models", headers=h)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["default"] == "gemini-2.5-flash"
-    assert body["models"][0]["name"] == "gemini-3-flash-preview"
+def test_parse_extracts_title_date_and_inline_body():
+    # 標題、日期、正文同一行：只移除「標題＋日期」，正文保留
+    d = summarizer.parse_story_post("2026年聖靈故事7(20260315) 正文第一句。第二句。")
+    assert d["title"] == "2026年聖靈故事7"
+    assert d["orig_date"] == "2026-03-15T00:00:00"
+    assert d["body_markdown"] == "正文第一句。第二句。"
 
 
-def test_models_without_api_key_returns_503(client, monkeypatch):
-    h = _auth(client)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-    r = client.get("/api/admin/models", headers=h)
-    assert r.status_code == 503
+def test_parse_pads_are_stripped_and_year_optional():
+    # 補零去掉、缺年份時用當年、沒帶日期則 orig_date 為空
+    d = summarizer.parse_story_post("聖靈故事 第08\n內容。")
+    assert d["title"].endswith("年聖靈故事8")
+    assert d["orig_date"] == ""
+    assert d["body_markdown"] == "內容。"
 
 
-def test_draft_passes_selected_model(client, monkeypatch):
-    """後台選定的 model 應原樣傳進 summarizer。"""
-    h = _auth(client)
-    files = {"file": ("sample_export.txt", FIXTURE.read_bytes(), "text/plain")}
-    client.post("/api/admin/import", files=files, headers=h)
+def test_parse_without_number_leaves_title_empty():
+    d = summarizer.parse_story_post("這段沒有編號，只有內容。第二句。")
+    assert d["title"] == ""
+    assert d["orig_date"] == ""
+    assert d["body_markdown"] == "這段沒有編號，只有內容。第二句。"
 
-    seen = {}
-    monkeypatch.setattr(
-        summarizer,
-        "draft_article",
-        lambda msgs, instructions=None, model=None: seen.update(model=model)
-        or {"title": "t", "excerpt": "e", "body_markdown": "b", "tags": []},
-    )
-    r = client.post(
-        "/api/admin/draft",
-        json={"conversation": "Alice", "model": "gemini-3-flash-preview"},
-        headers=h,
-    )
-    assert r.status_code == 200
-    assert seen["model"] == "gemini-3-flash-preview"
+
+def test_parse_invalid_date_ignored():
+    d = summarizer.parse_story_post("2026年聖靈故事9(20261340) 內容。")
+    assert d["title"] == "2026年聖靈故事9"
+    assert d["orig_date"] == ""  # 無效日期不採用
+    assert d["body_markdown"] == "內容。"
+
+
+def test_parse_excerpt_takes_first_sentences():
+    body = "。".join([f"第{i}句" for i in range(1, 40)]) + "。"
+    d = summarizer.parse_story_post("2026年聖靈故事1\n" + body)
+    assert d["excerpt"].startswith("第1句。 第2句。")  # 句子間以空白相接
+    assert len(d["excerpt"]) <= 101  # 約 100 字上限（含結尾…）
