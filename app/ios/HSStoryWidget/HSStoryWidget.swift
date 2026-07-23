@@ -77,12 +77,13 @@ struct HSStoryWidgetEntryView: View {
                 .foregroundColor(.secondary)
             Text(entry.title)
                 .font(.headline)
-                .lineLimit(family == .systemSmall ? 3 : 2)
+                .lineLimit(family == .systemMedium ? 2 : 3)
             if family != .systemSmall {
                 Text(entry.excerpt)
                     .font(.footnote)
                     .foregroundColor(.secondary)
-                    .lineLimit(3)
+                    // 大尺寸顯示更多摘要行數，中尺寸維持精簡。
+                    .lineLimit(family == .systemLarge ? 14 : 3)
             }
             Spacer(minLength: 0)
         }
@@ -110,7 +111,7 @@ struct HSStoryWidget: Widget {
         }
         .configurationDisplayName("聖靈故事")
         .description("顯示最新一篇聖靈故事，點擊閱讀全文。")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
