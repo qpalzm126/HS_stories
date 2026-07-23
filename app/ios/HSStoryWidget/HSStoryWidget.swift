@@ -1,3 +1,9 @@
+//
+//   HSStoryWidget.swift
+//  Runner
+//
+//  Created by Leon.Chen on 2026/7/23.
+//
 // 聖靈故事 iOS 桌面 Widget（WidgetKit / SwiftUI）
 //
 // 資料來源：Flutter 端 home_widget 透過 App Group 寫入的 UserDefaults。
@@ -107,3 +113,4 @@ struct HSStoryWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
+
