@@ -102,6 +102,7 @@ a:hover { text-decoration: underline; }
 .reading .back { display: inline-block; margin-bottom: 16px; font-size: 14px; }
 .reading h1 { font-size: 28px; margin: 8px 0 4px; line-height: 1.35; }
 .reading .cover { width: 100%; border-radius: 12px; margin: 16px 0; }
+.reading-tools { margin: 12px 0 4px; }
 
 .prose { font-size: 17px; }
 .prose h2 { font-size: 21px; margin: 28px 0 8px; }
