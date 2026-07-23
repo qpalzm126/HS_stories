@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { api } from '../api.js'
 import Markdown from '../components/Markdown.jsx'
+import AdminShortcut from '../components/AdminShortcut.jsx'
 
 const ttsSupported =
   typeof window !== 'undefined' && 'speechSynthesis' in window
@@ -118,6 +119,7 @@ export default function Article() {
       )}
       {a.cover_url && <img className="cover" src={a.cover_url} alt="" />}
       <Markdown text={a.body} />
+      <AdminShortcut />
     </article>
   )
 }
