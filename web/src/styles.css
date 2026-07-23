@@ -98,6 +98,22 @@ a:hover { text-decoration: underline; }
   .cal-story { font-size: 11px; padding: 2px 4px; }
 }
 
+/* 已登入管理者的浮動「管理」捷徑（右下角，公開頁面隨時可進後台） */
+.admin-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 50;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 16px; border-radius: 999px;
+  background: var(--accent); color: #fff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .28);
+  font-size: 14px; font-weight: 600;
+}
+.admin-fab:hover { background: var(--accent-dark); text-decoration: none; }
+.admin-fab-icon { font-size: 16px; line-height: 1; }
+@media (max-width: 600px) {
+  .admin-fab { right: 14px; bottom: 14px; padding: 12px; }
+  .admin-fab-text { display: none; }  /* 手機只留齒輪圖示，省空間 */
+}
+
 /* 閱讀頁 */
 .reading .back { display: inline-block; margin-bottom: 16px; font-size: 14px; }
 .reading h1 { font-size: 28px; margin: 8px 0 4px; line-height: 1.35; }

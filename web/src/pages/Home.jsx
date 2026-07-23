@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
+import AdminShortcut from '../components/AdminShortcut.jsx'
 
 const PAGE = 100 // 每批載入筆數（後端公開 API limit 上限 200，取 100 分批較穩）
 
@@ -101,6 +102,8 @@ export default function Home() {
       <footer className="site-foot">
         <Link to="/admin">後台</Link>
       </footer>
+
+      <AdminShortcut />
     </div>
   )
 }
