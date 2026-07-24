@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api.dart';
 import 'article_screen.dart';
+import 'auth_service.dart';
 import 'models.dart';
 import 'theme.dart';
 import 'widget_service.dart';
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _api = Api();
+  final _auth = AuthService();
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
   String _q = ''; // 已套用的關鍵字
@@ -77,10 +79,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _confirmLogout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('登出'),
+        content: const Text('確定要登出嗎？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('登出')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await _auth.logout(); // 根層監聽 loggedIn → 自動切回登入頁
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('聖靈故事')),
+      appBar: AppBar(
+        title: const Text('聖靈故事'),
+        actions: [
+          IconButton(
+            tooltip: '登出',
+            icon: const Icon(Icons.logout),
+            onPressed: _confirmLogout,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           const SizedBox(height: 6),

@@ -10,8 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # 網路：抓公開 API（/api/articles、/api/articles/latest、/api/articles/{slug}）
+  # 網路：抓 API（整站需登入，請求帶 Authorization: Bearer <token>）
   http: ^1.2.0
+
+  # 登入 token 儲存（比 shared_preferences 安全；背景 isolate 另鏡射到 home_widget）
+  flutter_secure_storage: ^9.2.2
 
   # 原生 widget 橋接：寫入共享儲存（iOS App Group / Android SharedPreferences）並觸發 widget 更新
   home_widget: ^0.6.0

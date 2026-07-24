@@ -27,6 +27,11 @@ class Config {
   /// Android widget provider 類別名稱（對應 Kotlin 端 AppWidgetProvider）。
   static const String androidWidgetName = 'HSStoryWidgetProvider';
 
+  /// 登入 token 鏡射到 home_widget 共享儲存的鍵。
+  /// 前景 token 存 flutter_secure_storage；此鍵讓背景 isolate（widget 更新）
+  /// 也能讀到 token（token 是簽章字串、非密碼，見 login-plan §7.3）。
+  static const String kToken = 'hs_token';
+
   /// home_widget 共享儲存使用的鍵。iOS/Android 原生端讀取同一組鍵。
   static const String kTitle = 'hs_title';
   static const String kExcerpt = 'hs_excerpt';
