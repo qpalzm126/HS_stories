@@ -16,13 +16,15 @@ class Api {
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 
-  /// 已發佈文章列表；帶 [q] 則做標題/內文關鍵字搜尋。
+  /// 已發佈文章列表；帶 [q] 則做標題/內文關鍵字搜尋，[sort] 指定排序
+  /// （published_desc 最新在前／published_asc 最舊在前，對齊後端白名單）。
   Future<List<Article>> fetchArticles(
-      {int limit = 50, int offset = 0, String? q}) async {
+      {int limit = 50, int offset = 0, String? q, String? sort}) async {
     final query = <String, String>{
       'limit': '$limit',
       'offset': '$offset',
       if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      if (sort != null && sort.isNotEmpty) 'sort': sort,
     };
     final uri =
         Uri.parse('$baseUrl/api/articles').replace(queryParameters: query);

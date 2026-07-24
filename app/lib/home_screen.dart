@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
   String _q = ''; // 已套用的關鍵字
+  String _sort = 'published_desc'; // 排序：最新在前 / 最舊在前（對齊後端白名單）
   late Future<List<Article>> _future;
 
   @override
@@ -39,7 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 上限 200：對齊後端 limit 的 le 上限，且 > 全站文章數，搜尋能抓齊符合的。
   Future<List<Article>> _load() =>
-      _api.fetchArticles(q: _q.isEmpty ? null : _q, limit: 200);
+      _api.fetchArticles(q: _q.isEmpty ? null : _q, limit: 200, sort: _sort);
+
+  // 切換排序（最新在前 ⇄ 最舊在前）並重載。
+  void _toggleSort() {
+    setState(() {
+      _sort = _sort == 'published_desc' ? 'published_asc' : 'published_desc';
+      _future = _load();
+    });
+  }
 
   // 打字時 debounce，避免每個字都打 API（對齊 web）。
   void _onQueryChanged(String value) {
@@ -76,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const SizedBox(height: 6),
           _SearchField(controller: _searchCtrl, onChanged: _onQueryChanged),
+          _SortBar(sort: _sort, onToggle: _toggleSort),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refresh,
@@ -90,7 +100,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                   final items = snap.data ?? const <Article>[];
                   if (items.isEmpty) return _EmptyView(query: _q);
-                  return _ArticleList(items: items, query: _q, onOpen: _open);
+                  return _ArticleList(
+                    items: items,
+                    query: _q,
+                    onOpen: _open,
+                    // 只有「最新在前」時才把第一篇做成「最新」hero。
+                    heroEnabled: _sort == 'published_desc',
+                  );
                 },
               ),
             ),
@@ -138,12 +154,48 @@ class _SearchField extends StatelessWidget {
   }
 }
 
+/// 排序切換列：右對齊，一鍵在「最新在前 / 最舊在前」間切換。
+class _SortBar extends StatelessWidget {
+  final String sort;
+  final VoidCallback onToggle;
+  const _SortBar({required this.sort, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final isDesc = sort == 'published_desc';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: onToggle,
+          icon: Icon(Icons.swap_vert, size: 18, color: p.muted),
+          label: Text(
+            isDesc ? '最新在前' : '最舊在前',
+            style: TextStyle(color: p.text, fontSize: 13),
+          ),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ArticleList extends StatelessWidget {
   final List<Article> items;
   final String query;
   final ValueChanged<Article> onOpen;
+  final bool heroEnabled;
   const _ArticleList(
-      {required this.items, required this.query, required this.onOpen});
+      {required this.items,
+      required this.query,
+      required this.onOpen,
+      this.heroEnabled = true});
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +222,7 @@ class _ArticleList extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 14),
           child: _ArticleCard(
             article: a,
-            hero: !searching && i == 0,
+            hero: heroEnabled && !searching && i == 0,
             onTap: () => onOpen(a),
           ),
         );

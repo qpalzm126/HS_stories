@@ -3,15 +3,39 @@ import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import AdminShortcut from '../components/AdminShortcut.jsx'
 
-const PAGE = 100 // 每批載入筆數（後端公開 API limit 上限 200，取 100 分批較穩）
+const PAGE_SIZE = 20 // 每頁筆數（數字分頁）
+
+const SORTS = [
+  { value: 'published_desc', label: '最新在前' },
+  { value: 'published_asc', label: '最舊在前' },
+]
+
+// 產生頁碼列：首頁、末頁、當前 ±2，其餘以 '…' 省略。
+function pageNumbers(current, totalPages) {
+  const span = 2
+  const set = new Set([1, totalPages])
+  for (let p = current - span; p <= current + span; p++) {
+    if (p >= 1 && p <= totalPages) set.add(p)
+  }
+  const sorted = [...set].sort((a, b) => a - b)
+  const out = []
+  let prev = 0
+  for (const p of sorted) {
+    if (p - prev > 1) out.push('…')
+    out.push(p)
+    prev = p
+  }
+  return out
+}
 
 export default function Home() {
   const [items, setItems] = useState(null)
+  const [total, setTotal] = useState(0)
   const [err, setErr] = useState('')
   const [q, setQ] = useState('')
   const [dq, setDq] = useState('') // debounced query
-  const [hasMore, setHasMore] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [sort, setSort] = useState('published_desc')
+  const [page, setPage] = useState(1) // 1-based
 
   // 打字時 debounce，避免每個字都打 API
   useEffect(() => {
@@ -19,37 +43,42 @@ export default function Home() {
     return () => clearTimeout(t)
   }, [q])
 
+  // 換搜尋字或排序 → 回到第 1 頁
   useEffect(() => {
-    setItems(null)
-    setErr('')
-    setHasMore(false)
-    if (dq) {
-      // 有關鍵字：一次抓（上限 200，對齊後端）
-      api.articles({ q: dq, limit: 200 }).then(setItems).catch((e) => setErr(String(e.message || e)))
-    } else {
-      // 無關鍵字：分批載入（可看到全部歷年文章，不再只有最新一批）
-      api
-        .articles({ limit: PAGE, offset: 0 })
-        .then((list) => {
-          setItems(list)
-          setHasMore(list.length === PAGE)
-        })
-        .catch((e) => setErr(String(e.message || e)))
-    }
+    setPage(1)
+  }, [dq, sort])
+
+  // 總數（算總頁數用；只跟搜尋字有關）
+  useEffect(() => {
+    let ignore = false
+    api
+      .articlesCount({ q: dq })
+      .then((d) => { if (!ignore) setTotal(d.total || 0) })
+      .catch(() => { if (!ignore) setTotal(0) })
+    return () => { ignore = true }
   }, [dq])
 
-  const loadMore = useCallback(() => {
-    if (loadingMore || !items) return
-    setLoadingMore(true)
+  // 當頁資料（ignore 旗標避免舊請求覆蓋新結果）
+  useEffect(() => {
+    let ignore = false
+    setItems(null)
+    setErr('')
     api
-      .articles({ limit: PAGE, offset: items.length })
-      .then((list) => {
-        setItems((prev) => [...prev, ...list])
-        setHasMore(list.length === PAGE)
-      })
-      .catch((e) => setErr(String(e.message || e)))
-      .finally(() => setLoadingMore(false))
-  }, [items, loadingMore])
+      .articles({ q: dq, sort, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE })
+      .then((list) => { if (!ignore) setItems(list) })
+      .catch((e) => { if (!ignore) setErr(String(e.message || e)) })
+    return () => { ignore = true }
+  }, [dq, sort, page])
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const go = useCallback((p) => {
+    setPage((cur) => {
+      const next = Math.min(Math.max(1, p), totalPages)
+      if (next !== cur) window.scrollTo({ top: 0, behavior: 'smooth' })
+      return next
+    })
+  }, [totalPages])
 
   return (
     <div className="site">
@@ -72,11 +101,24 @@ export default function Home() {
 
       {items === null ? (
         <p className="muted">載入中…</p>
-      ) : items.length === 0 ? (
+      ) : total === 0 ? (
         <p className="muted">{dq ? `找不到含「${dq}」的文章。` : '目前還沒有文章。'}</p>
       ) : (
         <>
-          {dq && <p className="muted search-count">找到 {items.length} 篇含「{dq}」的文章</p>}
+          <div className="list-toolbar">
+            <span className="muted">
+              {dq ? `找到 ${total} 篇含「${dq}」的文章` : `共 ${total} 篇`}
+            </span>
+            <label className="sort-select">
+              排序
+              <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="排序方式">
+                {SORTS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="cards">
             {items.map((a) => (
               <Link className="card" to={`/article/${a.slug}`} key={a.slug}>
@@ -89,12 +131,26 @@ export default function Home() {
               </Link>
             ))}
           </div>
-          {!dq && hasMore && (
-            <div className="load-more">
-              <button className="btn" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? '載入中…' : '載入更多'}
-              </button>
-            </div>
+
+          {totalPages > 1 && (
+            <nav className="pagination" aria-label="分頁">
+              <button className="btn sm" onClick={() => go(page - 1)} disabled={page <= 1}>‹ 上一頁</button>
+              {pageNumbers(page, totalPages).map((p, i) =>
+                p === '…' ? (
+                  <span key={`e${i}`} className="page-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={'page-num' + (p === page ? ' active' : '')}
+                    onClick={() => go(p)}
+                    aria-current={p === page ? 'page' : undefined}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+              <button className="btn sm" onClick={() => go(page + 1)} disabled={page >= totalPages}>下一頁 ›</button>
+            </nav>
           )}
         </>
       )}

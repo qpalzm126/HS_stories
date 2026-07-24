@@ -68,6 +68,32 @@ a:hover { text-decoration: underline; }
 .card-body h2 { margin: 0 0 6px; font-size: 18px; }
 .card-body p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
 
+/* 列表工具列：篇數 + 排序切換 */
+.list-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-top: 24px; font-size: 14px;
+}
+.sort-select { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.sort-select select {
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; font-size: 14px; cursor: pointer;
+}
+.sort-select select:focus { outline: none; border-color: var(--accent); }
+
+/* 數字分頁 */
+.pagination {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 6px; margin-top: 32px;
+}
+.page-num {
+  min-width: 36px; padding: 6px 10px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--text); border-radius: 8px; cursor: pointer;
+  font-size: 14px;
+}
+.page-num:hover { border-color: var(--accent); }
+.page-num.active { background: var(--accent); color: #fff; border-color: var(--accent); cursor: default; }
+.page-ellipsis { padding: 0 4px; color: var(--muted); }
+
 .site-foot { text-align: center; margin-top: 48px; color: var(--muted); font-size: 13px; }
 .site-nav { margin: 10px 0 0; }
 .load-more { text-align: center; margin-top: 28px; }

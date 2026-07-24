@@ -57,9 +57,20 @@ def require_admin(authorization: str | None = Header(None)) -> None:
 
 
 @app.get("/api/articles")
-def public_articles(q: str | None = None, limit: int = Query(50, le=500), offset: int = 0):
-    rows = db.list_articles(published_only=True, limit=limit, offset=offset, q=q)
+def public_articles(
+    q: str | None = None,
+    limit: int = Query(50, le=500),
+    offset: int = 0,
+    sort: str | None = None,
+):
+    rows = db.list_articles(published_only=True, limit=limit, offset=offset, q=q, sort=sort)
     return [articles.public_article(r) for r in rows]
+
+
+@app.get("/api/articles/count")
+def public_articles_count(q: str | None = None):
+    """公開文章總數（給網頁數字分頁算總頁數）。"""
+    return {"total": db.count_articles(published_only=True, q=q)}
 
 
 @app.get("/api/articles/latest")

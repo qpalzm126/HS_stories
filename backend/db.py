@@ -328,8 +328,16 @@ def get_latest_article() -> dict | None:
         )
 
 
-def list_articles(published_only: bool = True, limit: int = 50, offset: int = 0,
-                  q: str | None = None) -> list[dict]:
+# 公開列表可選排序（白名單，避免 SQL 注入）；同一天發佈的以 id 為次要鍵，讓順序穩定。
+_PUBLIC_SORTS = {
+    "published_desc": "published_at DESC, id DESC",
+    "published_asc": "published_at ASC, id ASC",
+}
+DEFAULT_PUBLIC_SORT = "published_desc"
+
+
+def _public_article_where(published_only: bool, q: str | None):
+    """公開列表/計數共用的篩選條件：published + q（標題或內文模糊比對）。"""
     clauses, params = [], {}
     if published_only:
         clauses.append("status = 'published'")
@@ -337,11 +345,26 @@ def list_articles(published_only: bool = True, limit: int = 50, offset: int = 0,
         clauses.append("(title LIKE :q OR body LIKE :q)")
         params["q"] = f"%{q.strip()}%"
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    order = "published_at DESC" if published_only else "COALESCE(updated_at, created_at) DESC"
+    return where, params
+
+
+def list_articles(published_only: bool = True, limit: int = 50, offset: int = 0,
+                  q: str | None = None, sort: str | None = None) -> list[dict]:
+    where, params = _public_article_where(published_only, q)
+    if published_only:
+        order = _PUBLIC_SORTS.get(sort or DEFAULT_PUBLIC_SORT, _PUBLIC_SORTS[DEFAULT_PUBLIC_SORT])
+    else:
+        order = "COALESCE(updated_at, created_at) DESC"
     params["limit"], params["offset"] = limit, offset
     sql = f"SELECT * FROM articles{where} ORDER BY {order} LIMIT :limit OFFSET :offset"
     with connection() as con:
         return [dict(r) for r in con.execute(sql, params)]
+
+
+def count_articles(published_only: bool = True, q: str | None = None) -> int:
+    where, params = _public_article_where(published_only, q)
+    with connection() as con:
+        return con.execute(f"SELECT COUNT(*) FROM articles{where}", params).fetchone()[0]
 
 
 def _admin_article_where(q: str | None, status: str | None):
