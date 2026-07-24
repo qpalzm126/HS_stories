@@ -4,9 +4,25 @@ const getToken = () => localStorage.getItem('hs_token') || ''
 const setToken = (t) => localStorage.setItem('hs_token', t)
 const clearToken = () => localStorage.removeItem('hs_token')
 
+// 使用者資訊（非敏感：username / server / is_admin），給 UI 判斷用。
+const getUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('hs_user') || 'null')
+  } catch {
+    return null
+  }
+}
+const setUser = (u) => localStorage.setItem('hs_user', JSON.stringify(u))
+const clearUser = () => localStorage.removeItem('hs_user')
+
+function clearAuth() {
+  clearToken()
+  clearUser()
+}
+
 async function toJson(res) {
   if (res.status === 401) {
-    clearToken()
+    clearAuth()
     throw new Error('未授權，請重新登入')
   }
   if (!res.ok) {
@@ -31,24 +47,37 @@ function clean(o) {
 }
 
 export const api = {
-  // ---- 公開 ----
-  articles: (params = {}) => fetch(`${BASE}/articles?` + new URLSearchParams(clean(params))).then(toJson),
-  articlesCount: (params = {}) => fetch(`${BASE}/articles/count?` + new URLSearchParams(clean(params))).then(toJson),
-  latest: () => fetch(`${BASE}/articles/latest`).then(toJson),
-  article: (slug) => fetch(`${BASE}/articles/${encodeURIComponent(slug)}`).then(toJson),
+  // ---- 文章（整站需登入，帶 Bearer token）----
+  articles: (params = {}) =>
+    fetch(`${BASE}/articles?` + new URLSearchParams(clean(params)), { headers: authHeaders() }).then(toJson),
+  articlesCount: (params = {}) =>
+    fetch(`${BASE}/articles/count?` + new URLSearchParams(clean(params)), { headers: authHeaders() }).then(toJson),
+  latest: () => fetch(`${BASE}/articles/latest`, { headers: authHeaders() }).then(toJson),
+  article: (slug) =>
+    fetch(`${BASE}/articles/${encodeURIComponent(slug)}`, { headers: authHeaders() }).then(toJson),
 
   // ---- 登入 ----
   isLoggedIn: () => !!getToken(),
-  logout: clearToken,
-  login: (password) =>
-    fetch(`${BASE}/admin/login`, {
+  currentUser: getUser,
+  isAdmin: () => !!(getUser() && getUser().is_admin),
+  logout: clearAuth,
+  login: ({ server, username, password }) =>
+    fetch(`${BASE}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ server, username, password }),
     })
       .then(toJson)
       .then((d) => {
         setToken(d.token)
+        setUser({ username: d.username, server: d.server, is_admin: d.is_admin })
+        return d
+      }),
+  me: () =>
+    fetch(`${BASE}/me`, { headers: authHeaders() })
+      .then(toJson)
+      .then((d) => {
+        setUser(d)
         return d
       }),
 

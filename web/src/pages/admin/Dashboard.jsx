@@ -57,7 +57,7 @@ export default function Dashboard() {
           <Link className="btn" to="/admin/ingest">從 LINE 產生</Link>
           <Link className="btn" to="/admin/new">新增文章</Link>
           <a className="btn" href="/" target="_blank" rel="noreferrer">看網站</a>
-          <button className="btn" onClick={() => { api.logout(); nav('/admin/login') }}>登出</button>
+          <button className="btn" onClick={() => { api.logout(); nav('/login') }}>登出</button>
         </div>
       </div>
 

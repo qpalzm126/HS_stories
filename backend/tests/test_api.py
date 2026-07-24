@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import app as app_module
-from backend import db, summarizer
+from backend import auth, db, summarizer
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_export.txt"
 
@@ -12,21 +12,87 @@ FIXTURE = Path(__file__).parent / "fixtures" / "sample_export.txt"
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "api.db")
-    monkeypatch.setenv("ADMIN_PASSWORD", "pw")
+    # admin 白名單：heavensbride:admin 為管理員；其他有效帳號只是一般使用者。
+    monkeypatch.setenv("ADMIN_USERS", "heavensbride:admin")
     monkeypatch.setenv("SECRET_KEY", "sk")
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://example.org")
+
+    # mock 掉外部站代理登入：密碼為 "pw" 即視為驗證成功。
+    def fake_proxy_login(server, username, password):
+        return server in auth.SERVERS and password == "pw"
+
+    monkeypatch.setattr(auth, "proxy_login", fake_proxy_login)
     with TestClient(app_module.app) as c:
         yield c
 
 
-def _auth(client):
-    r = client.post("/api/admin/login", json={"password": "pw"})
-    assert r.status_code == 200
+def _login(client, server="heavensbride", username="admin", password="pw"):
+    r = client.post(
+        "/api/login",
+        json={"server": server, "username": username, "password": password},
+    )
+    assert r.status_code == 200, r.text
     return {"Authorization": f"Bearer {r.json()['token']}"}
 
 
+def _auth(client):
+    """admin 身分（在白名單內）。"""
+    return _login(client)
+
+
+def _user_auth(client):
+    """一般使用者（有效帳號但不在 admin 白名單）。"""
+    return _login(client, username="member")
+
+
 def test_login_wrong_password(client):
-    assert client.post("/api/admin/login", json={"password": "nope"}).status_code == 401
+    r = client.post(
+        "/api/login",
+        json={"server": "heavensbride", "username": "admin", "password": "nope"},
+    )
+    assert r.status_code == 401
+
+
+def test_login_unsupported_server(client):
+    r = client.post(
+        "/api/login",
+        json={"server": "facebook", "username": "admin", "password": "pw"},
+    )
+    assert r.status_code == 400
+
+
+def test_login_returns_is_admin(client):
+    admin = client.post(
+        "/api/login",
+        json={"server": "heavensbride", "username": "admin", "password": "pw"},
+    ).json()
+    assert admin["is_admin"] is True
+    member = client.post(
+        "/api/login",
+        json={"server": "heavensbride", "username": "member", "password": "pw"},
+    ).json()
+    assert member["is_admin"] is False
+
+
+def test_me_endpoint(client):
+    h = _user_auth(client)
+    r = client.get("/api/me", headers=h)
+    assert r.status_code == 200
+    assert r.json() == {"username": "member", "server": "heavensbride", "is_admin": False}
+
+
+def test_public_articles_require_login(client):
+    # 整站需登入：無 token → 401。
+    assert client.get("/api/articles").status_code == 401
+    assert client.get("/api/articles/count").status_code == 401
+    assert client.get("/api/articles/latest").status_code == 401
+    assert client.get("/api/articles/anything").status_code == 401
+
+
+def test_non_admin_forbidden_from_admin(client):
+    # 有 user token 但非 admin → 打 /api/admin/* 得 403。
+    h = _user_auth(client)
+    assert client.get("/api/admin/articles", headers=h).status_code == 403
 
 
 def test_admin_requires_token(client):
@@ -156,25 +222,25 @@ def test_full_publish_flow(client, monkeypatch):
     aid, slug = art["id"], art["slug"]
     assert art["status"] == "draft"
 
-    # 5. 尚未發佈 → 公開 API 看不到
-    assert client.get("/api/articles/latest").status_code == 404
-    assert client.get(f"/api/articles/{slug}").status_code == 404
+    # 5. 尚未發佈 → 公開 API 看不到（已登入）
+    assert client.get("/api/articles/latest", headers=h).status_code == 404
+    assert client.get(f"/api/articles/{slug}", headers=h).status_code == 404
 
     # 6. 發佈
     r = client.post(f"/api/admin/articles/{aid}/publish", headers=h)
     assert r.status_code == 200 and r.json()["status"] == "published"
 
-    # 7. 公開 API：latest / by-slug / list
-    r = client.get("/api/articles/latest")
+    # 7. 公開 API（需登入）：latest / by-slug / list
+    r = client.get("/api/articles/latest", headers=h)
     assert r.status_code == 200
     j = r.json()
     assert j["title"] == "測試文章"
     assert j["url"] == f"https://example.org/article/{slug}"
 
-    r = client.get(f"/api/articles/{slug}")
+    r = client.get(f"/api/articles/{slug}", headers=h)
     assert r.status_code == 200 and r.json()["body"] == "# 內文\n\n段落"
 
-    r = client.get("/api/articles")
+    r = client.get("/api/articles", headers=h)
     assert r.status_code == 200 and len(r.json()) == 1
 
 

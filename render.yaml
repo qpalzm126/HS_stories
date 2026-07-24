@@ -14,8 +14,8 @@ services:
       - key: HS_DB_PATH
         value: /data/hs.db
       # --- 應用祕密（建立時在 Render 填）---
-      # 必填：後台登入密碼
-      - key: ADMIN_PASSWORD
+      # 必填：admin 白名單（server:username，逗號分隔，如 heavensbride:alice,tcgm:bob）
+      - key: ADMIN_USERS
         sync: false
       - key: SECRET_KEY
         sync: false

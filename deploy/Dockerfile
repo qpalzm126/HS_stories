@@ -2,8 +2,8 @@
 # 建置（context = repo 根）：
 #   docker build -f deploy/Dockerfile -t hs-story .
 # 執行：
-#   docker run -p 8000:8000 -e ADMIN_PASSWORD=... -e SECRET_KEY=... \
-#     -e GEMINI_API_KEY=... -e PUBLIC_BASE_URL=https://your-domain \
+#   docker run -p 8000:8000 -e ADMIN_USERS=heavensbride:alice -e SECRET_KEY=... \
+#     -e PUBLIC_BASE_URL=https://your-domain \
 #     -v hs_data:/data hs-story
 
 # ---- 1. build 前端 ----

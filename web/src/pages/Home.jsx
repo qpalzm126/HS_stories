@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import AdminShortcut from '../components/AdminShortcut.jsx'
+import SiteFooter from '../components/SiteFooter.jsx'
 
 const PAGE_SIZE = 20 // 每頁筆數（數字分頁）
 
@@ -155,9 +156,7 @@ export default function Home() {
         </>
       )}
 
-      <footer className="site-foot">
-        <Link to="/admin">後台</Link>
-      </footer>
+      <SiteFooter />
 
       <AdminShortcut />
     </div>

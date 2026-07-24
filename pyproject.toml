@@ -9,14 +9,14 @@ dependencies = [
     "python-multipart>=0.0.9",
     "python-dotenv>=1.0",
     "itsdangerous>=2.1",
+    # httpx：代理登入外部論壇（HeavensBride / TCGM）需在正式映像可用。
+    "httpx>=0.27",
 ]
 
-# 測試才「直接」需要的套件：pytest 跑測試、httpx 供 starlette TestClient。
-# 正式映像用 `uv sync --no-dev`：pytest / httpx 都不會裝入（產草稿已改純本地規則，不需外送 HTTP）。
+# 測試才「直接」需要的套件：pytest 跑測試（httpx 已在正式相依中，供 TestClient 與 mock）。
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "httpx>=0.27",
 ]
 
 # 這是「應用程式」而非要打包發佈的套件：backend 以原始碼形式從工作目錄匯入

@@ -11,6 +11,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
@@ -42,21 +43,62 @@ app.add_middleware(
 )
 
 
-# ---- 後台驗證 -----------------------------------------------------------------
+# ---- 驗證 ---------------------------------------------------------------------
 
 
-def require_admin(authorization: str | None = Header(None)) -> None:
-    token = None
+def _bearer(authorization: str | None) -> str | None:
     if authorization and authorization.lower().startswith("bearer "):
-        token = authorization[7:]
-    if not auth.verify_token(token):
-        raise HTTPException(401, "未授權，請重新登入")
+        return authorization[7:]
+    return None
 
 
-# ============ 公開 API（免驗證，給網站與 widget）============
+def require_user(authorization: str | None = Header(None)) -> dict:
+    """整站需登入：驗 token，回使用者 payload（{"u","s","a"}）。"""
+    payload = auth.verify_token(_bearer(authorization))
+    if not payload:
+        raise HTTPException(401, "請先登入")
+    return payload
 
 
-@app.get("/api/articles")
+def require_admin(user: dict = Depends(require_user)) -> dict:
+    if not user.get("a"):
+        raise HTTPException(403, "需要管理員權限")
+    return user
+
+
+# ============ 登入 ============
+
+
+class LoginReq(BaseModel):
+    server: str  # "heavensbride" | "tcgm"
+    username: str
+    password: str
+
+
+@app.post("/api/login")
+def login(req: LoginReq):
+    if req.server not in auth.SERVERS:
+        raise HTTPException(400, "server 不支援")
+    try:
+        ok = auth.proxy_login(req.server, req.username, req.password)
+    except httpx.HTTPError:
+        raise HTTPException(502, "無法連線到論壇伺服器，請稍後再試")
+    if not ok:
+        raise HTTPException(401, "帳號或密碼錯誤")
+    is_admin = auth.is_admin_user(req.server, req.username)
+    token = auth.make_token(req.username, req.server, is_admin)
+    return {"token": token, "username": req.username, "server": req.server, "is_admin": is_admin}
+
+
+@app.get("/api/me")
+def me(user: dict = Depends(require_user)):
+    return {"username": user["u"], "server": user["s"], "is_admin": user.get("a", False)}
+
+
+# ============ 公開 API（整站需登入，給網站與 widget）============
+
+
+@app.get("/api/articles", dependencies=[Depends(require_user)])
 def public_articles(
     q: str | None = None,
     limit: int = Query(50, le=500),
@@ -67,13 +109,13 @@ def public_articles(
     return [articles.public_article(r) for r in rows]
 
 
-@app.get("/api/articles/count")
+@app.get("/api/articles/count", dependencies=[Depends(require_user)])
 def public_articles_count(q: str | None = None):
     """公開文章總數（給網頁數字分頁算總頁數）。"""
     return {"total": db.count_articles(published_only=True, q=q)}
 
 
-@app.get("/api/articles/latest")
+@app.get("/api/articles/latest", dependencies=[Depends(require_user)])
 def public_latest():
     row = db.get_latest_article()
     if not row:
@@ -81,7 +123,7 @@ def public_latest():
     return articles.public_article(row, full=True)
 
 
-@app.get("/api/articles/{slug}")
+@app.get("/api/articles/{slug}", dependencies=[Depends(require_user)])
 def public_article_by_slug(slug: str):
     row = db.get_article_by_slug(slug, published_only=True)
     if not row:
@@ -89,18 +131,7 @@ def public_article_by_slug(slug: str):
     return articles.public_article(row, full=True)
 
 
-# ============ 後台 API（需 Bearer token）============
-
-
-class LoginReq(BaseModel):
-    password: str
-
-
-@app.post("/api/admin/login")
-def admin_login(req: LoginReq):
-    if not auth.check_password(req.password):
-        raise HTTPException(401, "密碼錯誤")
-    return {"token": auth.make_token()}
+# ============ 後台 API（需 admin token）============
 
 
 @app.post("/api/admin/import", dependencies=[Depends(require_admin)])
